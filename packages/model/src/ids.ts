@@ -14,3 +14,8 @@ export function newId(): string {
 export function sliceId(sliceType: string): string {
   return `${sliceType}$${randomUUID()}`;
 }
+
+/** Field-level link, table row and table cell key: a uuid v4. */
+export function newKey(): string {
+  return randomUUID();
+}
