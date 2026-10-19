@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest, preHandlerAsyncHookHandler } from "fastify";
-import { RepositoryService, type Repo } from "../domain/repositories.js";
+import type { Config } from "../config.js";
+import { REPO_NAME_RE, RepositoryService, type Repo } from "../domain/repositories.js";
 import { repositoryNotFound, writeRepositoryNotFound } from "./errors.js";
 
 const PREFIX_RE = /^\/r\/([^/?#]+)(?=[/?#]|$)/;
@@ -10,7 +11,14 @@ export function rewriteUrl(req: { url?: string }): string {
   const url = req.url ?? "/";
   const m = PREFIX_RE.exec(url);
   if (!m) return url;
-  (req as any)[PREFIX_KEY] = decodeURIComponent(m[1]!);
+  let name: string;
+  try {
+    name = decodeURIComponent(m[1]!);
+  } catch {
+    return url; // malformed escape: not a repo prefix
+  }
+  if (!REPO_NAME_RE.test(name)) return url;
+  (req as any)[PREFIX_KEY] = name;
   const rest = url.slice(m[0].length);
   return rest.startsWith("/") ? rest : rest.startsWith("?") ? `/${rest}` : "/" + rest;
 }
@@ -42,22 +50,57 @@ export function resolveRepoName(req: FastifyRequest): string | undefined {
   return prefixRepo(req);
 }
 
-/** Builds an absolute URL for `path` (starting with `/`), honouring proxy headers and the /r/<repo> prefix. */
+const HOST_RE = /^[a-z0-9.-]+(:\d{1,5})?$/i;
+
+function hostAllowed(host: string, cfg: Config): boolean {
+  if (!HOST_RE.test(host)) return false;
+  const bare = host.split(":")[0]!.toLowerCase();
+  const allowed: string[] = [];
+  let base: string | undefined;
+  if (cfg.publicUrl) {
+    try {
+      allowed.push(new URL(cfg.publicUrl).hostname.toLowerCase());
+    } catch {
+      /* ignore bad publicUrl */
+    }
+  }
+  if (cfg.baseDomain) base = cfg.baseDomain.toLowerCase();
+  if (allowed.length === 0 && !base) return true; // dev: nothing configured
+  return allowed.includes(bare) || (base !== undefined && (bare === base || bare.endsWith(`.${base}`)));
+}
+
+/** Builds an absolute URL for `path` (starting with `/`), honouring validated proxy headers and the /r/<repo> prefix. */
 export function publicUrl(req: FastifyRequest, path: string): string {
   const cfg = req.server.config;
-  const trust = cfg.trustProxy;
-  const fwdProto = trust ? firstHeader(req.headers["x-forwarded-proto"]) : undefined;
-  const fwdHost = hostOf(req);
-  let origin: string;
-  if (fwdHost) {
-    origin = `${fwdProto ?? (cfg.publicUrl ? new URL(cfg.publicUrl).protocol.slice(0, -1) : req.protocol)}://${fwdHost}`;
-  } else if (cfg.publicUrl) {
-    origin = cfg.publicUrl.replace(/\/+$/, "");
-  } else {
-    origin = `${req.protocol}://${req.headers.host ?? "localhost"}`;
+  const sockProto = (req.raw.socket as { encrypted?: boolean }).encrypted ? "https" : "http";
+  const hostHeader = req.headers.host;
+
+  const configured = (() => {
+    if (!cfg.publicUrl) return undefined;
+    try {
+      return new URL(cfg.publicUrl).origin;
+    } catch {
+      return undefined;
+    }
+  })();
+
+  let origin: string | undefined;
+  const fwdHost = cfg.trustProxy ? firstHeader(req.headers["x-forwarded-host"]) : undefined;
+  const fwdProto = cfg.trustProxy ? firstHeader(req.headers["x-forwarded-proto"])?.toLowerCase() : undefined;
+  if (fwdHost !== undefined || fwdProto !== undefined) {
+    const host = fwdHost ?? hostHeader;
+    const protoOk = fwdProto === undefined || fwdProto === "http" || fwdProto === "https";
+    if (host && protoOk && hostAllowed(host, cfg)) origin = `${fwdProto ?? sockProto}://${host}`;
+  } else if (hostHeader && hostAllowed(hostHeader, cfg)) {
+    origin = `${sockProto}://${hostHeader}`;
   }
-  const prefix = prefixRepo(req);
-  return `${origin}${prefix ? `/r/${prefix}` : ""}${path.startsWith("/") ? path : `/${path}`}`;
+  if (!origin) {
+    origin = configured ?? (hostHeader && HOST_RE.test(hostHeader) ? `${sockProto}://${hostHeader}` : "http://localhost");
+  }
+
+  const used = prefixRepo(req);
+  const name = used ? resolveRepoName(req) ?? used : undefined;
+  return `${origin}${name ? `/r/${encodeURIComponent(name)}` : ""}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 export type RepoKind = "content" | "write";

@@ -10,7 +10,7 @@ let s: { baseUrl: string; sql: Sql; close(): Promise<void> };
 beforeAll(async () => {
   const db = await createTestDb();
   await migrate(db.sql);
-  const config = { ...loadConfig({ ...process.env, DATABASE_URL: db.url }), baseDomain: "cms.test" };
+  const config = { ...loadConfig({ ...process.env, DATABASE_URL: db.url }), baseDomain: "cms.test", publicUrl: "https://cms.example.com" };
   const app = await buildApp({ config, sql: db.sql });
   await new RepositoryService(db.sql).create({ name: "blog", masterLocale: { code: "en-us", name: "English" } });
   app.get("/api/tags", { preHandler: app.requireRepo("content") }, async (req) => ({
