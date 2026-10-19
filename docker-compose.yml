@@ -11,5 +11,26 @@ services:
       test: ["CMD-SHELL", "pg_isready -U prismic"]
       interval: 2s
       retries: 30
+
+  smaltic:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://prismic:prismic@db:5432/prismic
+      # Signs preview tokens. Required: at least 32 random characters, e.g. `openssl rand -base64 48`.
+      # Set it in your shell or in a .env file next to this file. The placeholder is rejected at startup.
+      SMALTIC_SECRET: ${SMALTIC_SECRET:-CHANGE-ME}
+      SMALTIC_DATA_DIR: /data
+      # Public origin of the server: asset URLs stored in content use it, and only its host is trusted
+      # in Host / X-Forwarded-Host headers. Set it to the URL your clients use.
+      SMALTIC_PUBLIC_URL: ${SMALTIC_PUBLIC_URL:-http://localhost:8080}
+    ports: ["8080:8080"]
+    volumes: ["./data:/data"]
+    restart: unless-stopped
+
 volumes:
   dbdata:
