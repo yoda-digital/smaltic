@@ -30,7 +30,8 @@ services:
       SMALTIC_PUBLIC_URL: ${SMALTIC_PUBLIC_URL:-http://localhost:8080}
     ports: ["8080:8080"]
     volumes: ["./data:/data"]
-    restart: unless-stopped
+    # Bounded retries: a bad config (e.g. the placeholder secret) stops the container instead of looping.
+    restart: on-failure:3
 
 volumes:
   dbdata:

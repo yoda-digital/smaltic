@@ -28,6 +28,10 @@ export interface CompatContext {
   archivedLinkSource?: string;
   /** A correctly signed preview token whose expiry is in the past. */
   expiredPreviewToken?: string;
+  /** A master ref superseded by a later publication (still within the default TTL). */
+  supersededRef?: string;
+  /** Base URL of a server for the same database with `SMALTIC_REF_TTL_SECONDS=0`. */
+  zeroTtlBaseUrl?: string;
   /** Base URL of a server for the same database with `SMALTIC_RATE_LIMIT=5`. */
   rateLimitedBaseUrl?: string;
 }

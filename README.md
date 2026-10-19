@@ -21,8 +21,8 @@ Plan 1 is a headless server with no editor UI yet. What it covers:
 
 Not built yet: the Studio (editor and admin UI), GraphQL, image transforms, the preview toolbar bridge,
 webhooks and environments. Releases other than the migration release cannot be created over HTTP yet.
-The [parity matrix](docs/research/parity-matrix.md) lists every requirement; a requirement is marked
-`done` when a passing compat test names it. The research is in [docs/research/REA.md](docs/research/REA.md).
+The [parity matrix](docs/research/parity-matrix.md) lists every requirement. It is `done` when passing
+compat tests cover all of it and `partial` when they cover only some of it. The research is in [docs/research/REA.md](docs/research/REA.md).
 
 ## Quickstart (Docker)
 
@@ -30,7 +30,8 @@ You need Docker with Compose.
 
 ```sh
 # 1. A secret for signing preview tokens (at least 32 characters). Keep it stable across restarts.
-echo "SMALTIC_SECRET=$(openssl rand -base64 48)" > .env
+#    Appends to .env only if no secret is set there yet.
+grep -qs '^SMALTIC_SECRET=' .env || echo "SMALTIC_SECRET=$(openssl rand -base64 48)" >> .env
 
 # 2. Start Postgres and the server. Migrations run on startup.
 docker compose up -d --build
@@ -43,6 +44,10 @@ docker compose exec smaltic node dist/cli.js create-token blog --kind access   #
 ```
 
 Uploaded files go to `./data`. Postgres data lives in the `dbdata` volume.
+
+If `SMALTIC_SECRET` is missing or shorter than 32 characters, the server exits at startup with a message
+saying so. Compose restarts it at most 3 times (`restart: on-failure:3`) and then leaves it stopped, so
+check `docker compose logs smaltic` when `/health` does not answer.
 
 ### Read content with the official client
 
@@ -136,7 +141,7 @@ pnpm --filter @smaltic/server dev
 ### Compat suite
 
 `tests/compat` drives the official SDKs against a Smaltic server over HTTP only. Each test name
-carries the requirement IDs it covers. Requirements left for later plans are listed as `todo` tests.
+carries the requirement IDs it covers: a bare ID (`REQ-API-007`) for full coverage, `REQ-API-007~` for partial. Requirements left for later plans are listed as `todo` tests.
 
 By default it boots the server from the workspace on a throwaway database. To test a running server
 instead (for example the Docker one), create a fresh repository with the `fr-fr` locale and pass its

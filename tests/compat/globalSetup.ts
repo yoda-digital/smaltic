@@ -69,6 +69,8 @@ async function local(provide: GlobalSetupContext["provide"]): Promise<() => Prom
 
     // Server-side steps with no HTTP API in Plan 1.
     const docs = new DocumentService(srv.sql);
+    const refs = new RefService(srv.sql, { secret: srv.app.config.secret });
+    const supersededRef = (await refs.currentMaster(repo.id)).ref;
     await docs.unpublish(repo.id, null, [ids["page:old-page"]!]);
     const { id: springId } = await docs.create(repo.id, null, {
       type: "page",
@@ -87,14 +89,18 @@ async function local(provide: GlobalSetupContext["provide"]): Promise<() => Prom
     await docs.addToRelease(repo.id, null, spring.id, ids["page:about"]!);
 
     const config = srv.app.config;
-    const expiredPreviewToken = new RefService(srv.sql, { secret: config.secret }).createPreviewToken(repo.id, "drafts", undefined, -60);
+    const expiredPreviewToken = refs.createPreviewToken(repo.id, "drafts", undefined, -60);
 
-    // Same database, SMALTIC_RATE_LIMIT=5.
-    const limited = await buildApp({ config: { ...config, rateLimit: 5 }, sql: srv.sql });
-    await limited.listen({ port: 0, host: "127.0.0.1" });
-    closers.push(() => limited.close());
-    const addr = limited.server.address();
-    const rateLimitedBaseUrl = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 0}`;
+    // More servers on the same database with one setting changed.
+    const variant = async (patch: Partial<typeof config>): Promise<string> => {
+      const app = await buildApp({ config: { ...config, ...patch }, sql: srv.sql });
+      await app.listen({ port: 0, host: "127.0.0.1" });
+      closers.push(() => app.close());
+      const addr = app.server.address();
+      return `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 0}`;
+    };
+    const rateLimitedBaseUrl = await variant({ rateLimit: 5 });
+    const zeroTtlBaseUrl = await variant({ refTtlSeconds: 0 });
 
     const ctx: CompatContext = {
       mode: "local",
@@ -108,6 +114,8 @@ async function local(provide: GlobalSetupContext["provide"]): Promise<() => Prom
       archivedLinkSource: ids["page:linker"],
       expiredPreviewToken,
       rateLimitedBaseUrl,
+      supersededRef,
+      zeroTtlBaseUrl,
     };
     provide("compat", ctx);
   } catch (e) {

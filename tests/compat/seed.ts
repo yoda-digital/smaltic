@@ -105,6 +105,9 @@ export const customTypes = [
     text: { type: "Text", config: { label: "Text" } },
     select: { type: "Select", config: { label: "Select", options: ["one", "two"] } },
     flag: { type: "Boolean", config: { label: "Flag" } },
+    flag_on: { type: "Boolean", config: { label: "Flag on", default_value: true } },
+    select_def: { type: "Select", config: { label: "Select with default", options: ["one", "two"], default_value: "two" } },
+    bounded: { type: "Number", config: { label: "Bounded", min: 0, max: 10 } },
     embed: { type: "Embed", config: { label: "Embed" } },
     geo: { type: "GeoPoint", config: { label: "Geo" } },
     integ: { type: "IntegrationFields", config: { label: "Integration", catalog: "compat--shop" } },
@@ -381,8 +384,11 @@ export async function seed(t: Target): Promise<SeedResult> {
 }
 
 /** `GET /previews/session` -> `{ token, previewUrl }` (write token auth). */
-export async function previewSession(t: Target, documentId?: string): Promise<{ token: string; previewUrl: string | null }> {
-  const qs = documentId ? `?documentId=${encodeURIComponent(documentId)}` : "";
+export async function previewSession(t: Target, documentId?: string, config?: string): Promise<{ token: string; previewUrl: string | null }> {
+  const p = new URLSearchParams();
+  if (documentId) p.set("documentId", documentId);
+  if (config) p.set("config", config);
+  const qs = p.size ? `?${p}` : "";
   const res = await expectOk(await call(t, "GET", `/r/${t.repo}/previews/session${qs}`), "preview session");
   return (await res.json()) as { token: string; previewUrl: string | null };
 }

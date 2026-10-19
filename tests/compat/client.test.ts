@@ -44,9 +44,20 @@ async function products(filters: string[], params: Record<string, unknown> = {})
 }
 
 describe("Repository API", () => {
-  it("REQ-SDK-003 REQ-API-007 REQ-API-011 REQ-SDK-001 getRepository() shape and absolute form actions", async () => {
+  it("REQ-SDK-003 REQ-API-007~ REQ-API-011 REQ-SDK-001 getRepository(): exact keys, forms.everything fields, absolute form actions, no-store", async () => {
     const repo = await cl.getRepository();
-    expect(Object.keys(repo)).toEqual(expect.arrayContaining(["refs", "bookmarks", "types", "languages", "forms", "tags", "license", "version"]));
+    // Exact key set. `integrationFieldsRef` is always present (null without catalogs): REQ-API-007 wants it only
+    // when catalogs exist, so that REQ stays partial.
+    expect(Object.keys(repo).sort()).toEqual(
+      ["bookmarks", "experiments", "forms", "integrationFieldsRef", "languages", "license", "oauth_initiate", "oauth_token", "refs", "tags", "types", "version"],
+    );
+    expect(repo.experiments).toEqual({ draft: [], running: [] });
+    expect((repo as any).integrationFieldsRef).toBeNull();
+    for (const k of ["oauth_initiate", "oauth_token"] as const) expect(repo[k]).toMatch(new RegExp(`^${c.baseUrl}/`));
+    expect(Object.keys(repo.forms.everything!.fields)).toEqual(
+      ["ref", "q", "lang", "page", "pageSize", "after", "fetch", "fetchLinks", "graphQuery", "orderings", "referer", "routes", "access_token", "integrationFieldsRef"],
+    );
+    expect((await fetch(documentAPIEndpoint(c))).headers.get("cache-control")).toBe("max-age=0, no-store");
     expect(repo.refs[0]).toMatchObject({ id: "master", label: "Master", isMasterRef: true });
     expect(repo.types).toMatchObject({ page: "Page", blog_post: "Blog post", kitchen_sink: "Kitchen sink" });
     const prefix = `${c.baseUrl}/r/${c.repo}`;
@@ -66,12 +77,12 @@ describe("Repository API", () => {
     expect((repo.languages[0] as any).is_master).toBe(true);
   });
 
-  it("REQ-API-005 getRefByLabel / getReleaseByLabel of an unknown label throw PrismicError", async () => {
+  it("getRefByLabel / getReleaseByLabel of an unknown label throw PrismicError", async () => {
     await expect(cl.getRefByLabel("nope")).rejects.toBeInstanceOf(PrismicError);
     await expect(cl.getReleaseByLabel("nope")).rejects.toBeInstanceOf(PrismicError);
   });
 
-  it("REQ-API-003 REQ-SDK-011 REQ-API-013 CORS and JSON headers on /api/v2, search and tags", async () => {
+  it("REQ-API-003 REQ-SDK-011~ REQ-API-013 CORS and JSON headers on /api/v2, search, tags and error responses", async () => {
     const master = (await cl.getMasterRef()).ref;
     const base = documentAPIEndpoint(c);
     for (const url of [base, `${base}/documents/search?ref=${master}`, `${c.baseUrl}/r/${c.repo}/api/tags`]) {
@@ -80,6 +91,12 @@ describe("Repository API", () => {
       expect(res.headers.get("access-control-allow-origin"), url).toBe("*");
       expect(res.headers.get("content-type"), url).toMatch(/^application\/json/);
       expect(res.headers.get("x-prismic-version"), url).toBe("6");
+    }
+    for (const url of [`${base}/documents/search`, `${base}/documents/search?ref=bogusbogusbogus1`, `${base}/documents/search?ref=${master}&q=[[nope]]`]) {
+      const res = await fetch(url);
+      expect(res.status, url).toBeGreaterThanOrEqual(400);
+      expect(res.headers.get("access-control-allow-origin"), url).toBe("*");
+      expect(res.headers.get("content-type"), url).toMatch(/^application\/json/);
     }
   });
 
@@ -101,17 +118,23 @@ describe("Tags API", () => {
 });
 
 describe("Search envelope and pagination", () => {
-  it("REQ-API-027 REQ-SDK-005 get() envelope fields and absolute next_page", async () => {
-    const res = await cl.get({ pageSize: 10 });
+  it("REQ-API-027 REQ-SDK-005~ envelope keys in order and absolute next_page/prev_page carrying the params (no routes)", async () => {
+    const res = await cl.get({ pageSize: 10, filters: [filter.at("document.type", "bulk_item")], orderings: { field: "my.bulk_item.n" }, lang: LOCALE });
     expect(Object.keys(res)).toEqual(
-      expect.arrayContaining(["page", "results_per_page", "results_size", "total_results_size", "total_pages", "next_page", "prev_page", "results"]),
+      ["page", "results_per_page", "results_size", "total_results_size", "total_pages", "next_page", "prev_page", "results", "version", "license"],
     );
     expect(res).toMatchObject({ page: 1, results_per_page: 10, results_size: 10, prev_page: null });
     expect(res.total_pages).toBe(Math.ceil(res.total_results_size / 10));
     expect(res.next_page).toMatch(new RegExp(`^${c.baseUrl}/r/${c.repo}/api/v2/documents/search\\?`));
+    const next = new URL(res.next_page!).searchParams;
+    expect(next.get("q")).toBe('[[at(document.type, "bulk_item")]]');
+    expect(next.get("orderings")).toBe("[my.bulk_item.n]");
+    expect([next.get("page"), next.get("pageSize"), next.get("lang"), next.get("routes")]).toEqual(["2", "10", LOCALE, null]);
+    const p2 = await cl.get({ pageSize: 10, page: 2 });
+    expect(new URL(p2.prev_page!).searchParams.get("page")).toBe("1");
   });
 
-  it("REQ-API-016 get({ page: 2, pageSize: 10 }) and pageSize above 100 is clamped", async () => {
+  it("REQ-API-016~ get({ page: 2, pageSize: 10 }) and pageSize above 100 is clamped", async () => {
     const p2 = await cl.get({ page: 2, pageSize: 10 });
     expect(p2).toMatchObject({ page: 2, results_per_page: 10, results_size: 10 });
     expect(p2.prev_page).not.toBeNull();
@@ -120,7 +143,7 @@ describe("Search envelope and pagination", () => {
     expect(big.results_size).toBe(100);
   });
 
-  it("REQ-API-016 a page past the end is 200 with no results and correct totals", async () => {
+  it("REQ-API-016~ a page past the end is 200 with no results and correct totals", async () => {
     const total = (await cl.get({ pageSize: 1 })).total_results_size;
     const res = await cl.get({ page: 999, pageSize: 100 });
     expect(res.results).toEqual([]);
@@ -133,7 +156,7 @@ describe("Search envelope and pagination", () => {
     expect(b.results.map((d) => d.id)).toEqual(a.results.map((d) => d.id));
   });
 
-  it("REQ-SDK-004 buildQueryURL() fetched directly returns what get() returns; unknown params are ignored", async () => {
+  it("REQ-SDK-004~ buildQueryURL() fetched directly returns what get() returns; unknown params are ignored", async () => {
     const params = { filters: [filter.at("document.type", "product")], orderings: { field: "my.product.price" } };
     const url = await cl.buildQueryURL(params);
     const direct = (await (await fetch(url)).json()) as { results: PrismicDocument[] };
@@ -142,7 +165,7 @@ describe("Search envelope and pagination", () => {
     expect(extra.results.map((d) => d.id)).toEqual(direct.results.map((d) => d.id));
   });
 
-  it("REQ-API-028 REQ-SDK-027 document metadata shape (+0000 timestamps, href, slugs)", async () => {
+  it("REQ-API-028 REQ-SDK-027 document metadata shape (+0000 timestamps, href, slugs, uid/url null)", async () => {
     const doc = await cl.getByUID("page", "home");
     expect(doc).toMatchObject({ id: id("page:home"), uid: "home", type: "page", lang: LOCALE, tags: ["landing", "featured"], linked_documents: [] });
     expect(doc.first_publication_date).toMatch(TS_RE);
@@ -151,6 +174,10 @@ describe("Search envelope and pagination", () => {
     const href = new URL(doc.href);
     expect(href.href.startsWith(`${c.baseUrl}/r/${c.repo}/api/v2/documents/search?`)).toBe(true);
     expect(href.searchParams.get("q")).toBe(`[[:d = at(document.id, "${doc.id}") ]]`);
+    expect(doc.alternate_languages).toEqual([{ id: id("page:accueil"), uid: "accueil", type: "page", lang: ALT_LOCALE }]);
+    const settings = await cl.getSingle("settings");
+    expect(settings.uid).toBeNull();
+    expect(settings.url).toBeNull();
   });
 });
 
@@ -181,7 +208,7 @@ describe("get* helpers", () => {
     await expect(cl.getSingle("none")).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  it("REQ-API-016 getByType and getAllByType over more than 250 documents (multi-page, terminates)", async () => {
+  it("REQ-API-016~ getByType and getAllByType over more than 250 documents (multi-page, terminates)", async () => {
     expect((await cl.getByType("product")).total_results_size).toBe(3);
     log.length = 0;
     const all = await cl.getAllByType("bulk_item");
@@ -191,7 +218,7 @@ describe("get* helpers", () => {
     expect(pages).toEqual(["1", "2", "3"]);
   });
 
-  it("REQ-API-021 getByTag, getAllByTag, getByEveryTag, getAllByEveryTag, getBySomeTags, getAllBySomeTags", async () => {
+  it("REQ-API-021~ getByTag, getAllByTag, getByEveryTag, getAllByEveryTag, getBySomeTags, getAllBySomeTags", async () => {
     expect(sorted(uids((await cl.getByTag("news")).results))).toEqual(["hello-world", "second-post"]);
     expect(await cl.getAllByTag("even")).toHaveLength(c.bulkCount / 2);
     expect(uids((await cl.getByEveryTag(["kitchen", "sale"])).results)).toEqual(["alpha"]);
@@ -200,7 +227,7 @@ describe("get* helpers", () => {
     expect(await cl.getAllBySomeTags(["bulk", "featured"])).toHaveLength(c.bulkCount + 2);
   });
 
-  it("REQ-API-016 dangerouslyGetAll() walks every page with page-number pagination", async () => {
+  it("REQ-API-016~ dangerouslyGetAll() walks every page with page-number pagination", async () => {
     const total = (await cl.get({ pageSize: 1 })).total_results_size;
     expect(total).toBeGreaterThanOrEqual(250);
     log.length = 0;
@@ -229,14 +256,14 @@ describe("Locales", () => {
 });
 
 describe("Orderings and after", () => {
-  it("REQ-API-025 orderings on a number field desc, then first_publication_date", async () => {
+  it("REQ-API-025~ orderings on a number field desc, then first_publication_date", async () => {
     const res = await products([], {
       orderings: [{ field: "my.product.price", direction: "desc" }, { field: "document.first_publication_date" }],
     });
     expect(res).toEqual(["gamma", "beta", "alpha"]);
   });
 
-  it("REQ-API-026 after=<id> continues after that document in the current ordering", async () => {
+  it("REQ-API-026~ after=<id> continues after that document in the current ordering", async () => {
     expect(await products([], { orderings: { field: "my.product.price" }, after: id("product:alpha") })).toEqual(["beta", "gamma"]);
   });
 });
@@ -248,8 +275,8 @@ describe("Filters (all 28)", () => {
     ["REQ-API-021 not(document.tags) with array is none-of", [filter.not("document.tags", ["sale"])], ["beta"]],
     ["REQ-API-021 any(document.tags) is any-of", [filter.any("document.tags", ["garden", "nothing"])], ["gamma"]],
     ["REQ-API-021 REQ-SDK-007 in(my.product.uid) keeps the array order", [filter.in("my.product.uid", ["gamma", "alpha"])], ["gamma", "alpha"], true],
-    ["REQ-API-022 fulltext(document) ANDs terms", [filter.fulltext("document", "espresso")], ["alpha", "beta"]],
-    ["REQ-API-022 fulltext on a rich text field is accent-insensitive", [filter.fulltext("my.product.description", "cafe espresso")], ["alpha"]],
+    ["REQ-API-022~ fulltext(document) ANDs terms", [filter.fulltext("document", "espresso")], ["alpha", "beta"]],
+    ["REQ-API-022~ fulltext on a rich text field is accent-insensitive", [filter.fulltext("my.product.description", "cafe espresso")], ["alpha"]],
     ["REQ-API-021 has(my.product.subtitle)", [filter.has("my.product.subtitle")], ["alpha", "beta"]],
     ["REQ-API-021 missing(my.product.subtitle) restricts to the type", [filter.missing("my.product.subtitle")], ["gamma"]],
     ["REQ-API-024 geopointNear orders nearest first", [filter.geopointNear("my.product.location", 48.8566, 2.3522, 500)], ["alpha", "gamma", "beta"], true],
@@ -258,6 +285,10 @@ describe("Filters (all 28)", () => {
     ["REQ-API-019 numberInRange is inclusive", [filter.numberInRange("my.product.price", 10, 20)], ["alpha", "beta"]],
     ["REQ-API-019 dateAfter is exclusive", [filter.dateAfter("my.product.release_date", "2024-03-10")], ["gamma"]],
     ["REQ-API-019 dateAfter accepts 13-digit epoch ms", [filter.dateAfter("my.product.release_date", Date.UTC(2024, 2, 10))], ["gamma"]],
+    // 01:00+0200 is 2024-03-09T23:00Z, so beta (2024-03-10) is after it; ignoring the offset would drop beta.
+    ["REQ-API-019 dateAfter accepts an ISO timestamp with offset", [filter.dateAfter("my.product.release_date", "2024-03-10T01:00:00+0200")], ["beta", "gamma"]],
+    ["REQ-API-019 dateDayOfWeek with a weekday number", [filter.dateDayOfWeek("my.product.release_date", 7 as never)], ["beta"]],
+    ["REQ-API-019 dateMonth with an all-caps name", [filter.dateMonth("my.product.release_date", "JULY" as never)], ["gamma"]],
     ["REQ-API-019 dateBefore is exclusive", [filter.dateBefore("my.product.release_date", "2024-03-10")], ["alpha"]],
     ["REQ-API-019 dateBetween is inclusive", [filter.dateBetween("my.product.release_date", "2024-01-15", "2024-03-10")], ["alpha", "beta"]],
     ["REQ-API-019 dateDayOfMonth", [filter.dateDayOfMonth("my.product.release_date", 10)], ["beta"]],
@@ -281,27 +312,53 @@ describe("Filters (all 28)", () => {
     });
   }
 
-  it("REQ-API-023 similar(id, max) excludes the source document", async () => {
+  it("REQ-API-021 a content-relationship filter compares the linked document id", async () => {
+    const res = await cl.get({ filters: [filter.at("my.blog_post.author", id("author:jane"))] });
+    expect(sorted(uids(res.results))).toEqual(["hello-world", "second-post"]);
+  });
+
+  it("REQ-API-018 filter grammar: [[...]] and [...] forms, :d = bindings, single/double quotes, numbers, arrays, whitespace", async () => {
+    const master = (await cl.getMasterRef()).ref;
+    const run = async (...qs: string[]) => {
+      const p = new URLSearchParams({ ref: master, pageSize: "100" });
+      for (const q of qs) p.append("q", q);
+      const res = await fetch(`${documentAPIEndpoint(c)}/documents/search?${p}`);
+      expect(res.status, qs.join(" ")).toBe(200);
+      return sorted(((await res.json()) as { results: PrismicDocument[] }).results.map((d) => d.uid));
+    };
+    expect(await run('[[:d = at(document.type, "product")][:d = at(my.product.price, 20)]]')).toEqual(["beta"]);
+    expect(await run("[at(document.type,'product')]", "[[ any( document.tags , [ 'garden' , \"nope\" ] ) ]]")).toEqual(["gamma"]);
+    expect(await run("[[at(document.type, \"product\")]]", "[[number.lt(my.product.price, 15.5)]]")).toEqual(["alpha"]);
+  });
+
+  it("REQ-API-023~ similar(id, max) excludes the source document", async () => {
     const res = await cl.get({ filters: [filter.similar(id("product:alpha"), 10)], pageSize: 100 });
     expect(res.results.map((d) => d.id)).not.toContain(id("product:alpha"));
     expect(uids(res.results)).toContain("beta");
   });
 
-  it("REQ-API-018 an invalid filter surfaces as ParsingError", async () => {
+  it("REQ-API-018 an invalid filter is a 400 api_parsing_error with pos; the client throws ParsingError", async () => {
+    const master = (await cl.getMasterRef()).ref;
+    const res = await fetch(`${documentAPIEndpoint(c)}/documents/search?ref=${master}&q=${encodeURIComponent("[[at(document.type")}`);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { type: string; message: string; pos?: Record<string, unknown> };
+    expect(body.type).toBe("api_parsing_error");
+    expect(typeof body.message).toBe("string");
+    expect(Object.keys(body.pos ?? {}).sort()).toEqual(["column", "id", "line", "location"]);
     await expect(cl.get({ filters: ['[foo(document.type, "x")]'] })).rejects.toBeInstanceOf(ParsingError);
     await expect(cl.get({ filters: ["[[at(document.type"] })).rejects.toBeInstanceOf(ParsingError);
   });
 });
 
 describe("Linked documents", () => {
-  it("REQ-API-030 fetchLinks: ['author.name'] fills the linked author's data", async () => {
+  it("REQ-API-030~ REQ-FLD-017 fetchLinks: ['author.name'] fills the linked author's data", async () => {
     const post = await cl.getByUID("blog_post", "hello-world", { fetchLinks: ["author.name"] });
     const author = (post.data as any).author;
     expect(author).toMatchObject({ link_type: "Document", id: id("author:jane"), type: "author", uid: "jane", isBroken: false });
     expect(author.data).toEqual({ name: "Jane Doe" });
   });
 
-  it("REQ-API-031 graphQuery selects fields and linked-document fields", async () => {
+  it("REQ-API-031~ graphQuery selects fields and linked-document fields", async () => {
     const graphQuery = `{ blog_post { title author { ...on author { name } } } }`;
     const post = await cl.getByUID("blog_post", "hello-world", { graphQuery });
     const data = post.data as any;
@@ -309,7 +366,7 @@ describe("Linked documents", () => {
     expect(data.author.data).toEqual({ name: "Jane Doe" });
   });
 
-  it("REQ-API-029 REQ-FLD-017 document links carry the stub fields", async () => {
+  it("REQ-API-029~ REQ-FLD-017 REQ-SDK-026 document links carry the stub fields", async () => {
     const about = await cl.getByUID("page", "about");
     expect((about.data as any).parent).toMatchObject({
       link_type: "Document",
@@ -319,7 +376,13 @@ describe("Linked documents", () => {
       lang: LOCALE,
       uid: "home",
       isBroken: false,
+      url: "/",
     });
+    const stub = (about.data as any).parent;
+    expect(stub.slug).toEqual(expect.any(String));
+    expect(stub.first_publication_date).toMatch(TS_RE);
+    expect(stub.last_publication_date).toMatch(TS_RE);
+    expect(stub.key).toMatch(/^[0-9a-f-]{36}$/);
   });
 });
 
@@ -333,7 +396,25 @@ describe("Routes", () => {
     expect((await cl.getByUID("page", "accueil", { lang: ALT_LOCALE })).url).toBe("/fr/accueil");
   });
 
-  it("REQ-API-047 resolvers: one level and two levels (author.company)", async () => {
+  it("REQ-API-046 keywords :lang (required) and :uid; a required resolver keyword without value yields no URL", async () => {
+    expect((await cl.getByUID("author", "jane", { routes: [{ type: "author", path: "/:lang/:uid" }] } as never)).url).toBe(`/${LOCALE}/jane`);
+    const noParent = [{ type: "page", path: "/:parent/:uid", resolvers: { parent: "parent" } }];
+    expect((await cl.getByUID("page", "contact", { routes: noParent } as never)).url).toBeNull();
+    expect((await cl.getByUID("page", "about", { routes: noParent } as never)).url).toBe("/home/about");
+  });
+
+  it("REQ-API-048 among equally specific routes the first in the array wins", async () => {
+    const twice = [{ type: "author", path: "/a/:uid" }, { type: "author", path: "/b/:uid" }];
+    expect((await cl.getByUID("author", "jane", { routes: twice } as never)).url).toBe("/a/jane");
+  });
+
+  it("REQ-API-045 a link whose type has no route carries no url key", async () => {
+    const about = await cl.getByUID("page", "about", { routes: [{ type: "author", path: "/authors/:uid" }] } as never);
+    expect(about.url).toBeNull();
+    expect((about.data as any).parent).not.toHaveProperty("url");
+  });
+
+  it("REQ-API-047~ resolvers: one level and two levels (author.company)", async () => {
     expect((await cl.getByUID("page", "about")).url).toBe("/home/about");
     expect((await cl.getByUID("blog_post", "hello-world")).url).toBe("/blog/acme/jane/hello-world");
   });
@@ -345,12 +426,21 @@ describe("Routes", () => {
     expect((await cl.getSingle("settings")).url).toBeNull();
   });
 
-  it("REQ-API-049 REQ-FLD-018 brokenRoute on a link to a document that does not exist", async () => {
+  it("REQ-API-049~ REQ-FLD-018 brokenRoute on a link to a document that does not exist", async () => {
     const contact = await cl.getByUID("page", "contact", { brokenRoute: "/404" });
-    expect((contact.data as any).related).toMatchObject({ link_type: "Document", isBroken: true, url: "/404" });
+    expect((contact.data as any).related).toMatchObject({
+      link_type: "Document",
+      id: MISSING_DOC_ID,
+      isBroken: true,
+      type: "broken_type",
+      slug: "-",
+      first_publication_date: null,
+      last_publication_date: null,
+      url: "/404",
+    });
   });
 
-  it.skipIf(!c.archivedLinkSource)("REQ-API-049 brokenRoute on a link to an unpublished document", async () => {
+  it.skipIf(!c.archivedLinkSource)("REQ-API-049~ brokenRoute on a link to an unpublished document", async () => {
     const linker = await cl.getByID(c.archivedLinkSource!, { brokenRoute: "/404" });
     expect((linker.data as any).related).toMatchObject({ isBroken: true, url: "/404" });
     expect((await cl.get({ filters: [filter.at("my.page.uid", "old-page")] })).results).toEqual([]);
@@ -358,7 +448,7 @@ describe("Routes", () => {
 });
 
 describe("Releases", () => {
-  it.skipIf(!c.release)("REQ-API-009 REQ-SDK-012 getReleases / getReleaseByLabel / getReleaseByID with a release-scoped token", async () => {
+  it.skipIf(!c.release)("REQ-API-009~ REQ-SDK-012 getReleases / getReleaseByLabel / getReleaseByID with a release-scoped token", async () => {
     const rc = client({ accessToken: c.release!.accessToken });
     const releases = await rc.getReleases();
     expect(releases.map((r) => r.label)).toEqual(["Spring"]);
@@ -377,7 +467,7 @@ describe("Releases", () => {
     expect(title(await rc.getByUID("page", "about"))).toBe("About");
   });
 
-  it.skipIf(!c.release)("REQ-API-005 releases are hidden without a master+releases token", async () => {
+  it.skipIf(!c.release)("REQ-API-005~ releases are hidden without a master+releases token", async () => {
     expect(await cl.getReleases()).toEqual([]);
     const spring = await client({ accessToken: c.release!.accessToken }).getReleaseByLabel("Spring");
     await expect(cl.get({ ref: spring.ref })).rejects.toBeInstanceOf(ForbiddenError);
@@ -390,7 +480,7 @@ describe("Previews", () => {
     ({ token } = await previewSession(c, id("page:draft-page")));
   });
 
-  it("REQ-PRV-001 REQ-SDK-014 queryContentFromRef(previewToken) returns a never-published draft", async () => {
+  it("REQ-PRV-001~ REQ-SDK-014 queryContentFromRef(previewToken) returns a never-published draft", async () => {
     await expect(cl.getByUID("page", "draft-page")).rejects.toBeInstanceOf(NotFoundError);
     const pc = client();
     pc.queryContentFromRef(token);
@@ -414,22 +504,25 @@ describe("Previews", () => {
     await expect(cl.resolvePreviewURL({ previewToken: token, documentID: MISSING_DOC_ID, defaultURL: "/" })).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  it.skipIf(!c.expiredPreviewToken)("REQ-SDK-013 an expired preview token -> PreviewTokenExpiredError", async () => {
+  it.skipIf(!c.expiredPreviewToken)("REQ-SDK-013~ REQ-PRV-001~ an expired preview token -> PreviewTokenExpiredError", async () => {
     await expect(cl.getByID(id("page:draft-page"), { ref: c.expiredPreviewToken! })).rejects.toBeInstanceOf(PreviewTokenExpiredError);
     await expect(
       cl.resolvePreviewURL({ previewToken: c.expiredPreviewToken!, documentID: id("page:draft-page"), defaultURL: "/" }),
     ).rejects.toBeInstanceOf(PreviewTokenExpiredError);
   });
 
-  it("REQ-PRV-002 REQ-SDK-015 preview sessions redirect to <previewURL>?token=<ref>&documentId=<id>", async () => {
+  it("REQ-PRV-002 REQ-SDK-015 preview sessions redirect to <previewURL>?token=<ref>&documentId=<id> of the named config", async () => {
     await createPreviewConfig(c, { name: "Compat site", website_url: "https://site.example", resolver_path: "/api/preview" });
+    await createPreviewConfig(c, { name: "Staging", website_url: "https://staging.example/app", resolver_path: "/preview" });
     const s = await previewSession(c, id("page:draft-page"));
     expect(s.previewUrl).toBe(`https://site.example/api/preview?token=${encodeURIComponent(s.token)}&documentId=${id("page:draft-page")}`);
+    const staging = await previewSession(c, id("page:draft-page"), "Staging");
+    expect(staging.previewUrl).toBe(`https://staging.example/app/preview?token=${encodeURIComponent(staging.token)}&documentId=${id("page:draft-page")}`);
   });
 });
 
 describe("Access control", () => {
-  it.skipIf(!c.privateRepo)("REQ-SDK-010 REQ-API-006 private repo: no token -> ForbiddenError; accessToken in config or per query -> OK", async () => {
+  it.skipIf(!c.privateRepo)("REQ-SDK-010~ REQ-API-006~ REQ-API-014 private repo: no token -> ForbiddenError; accessToken in config or per query -> OK", async () => {
     const { name, accessToken } = c.privateRepo!;
     await expect(client({}, name).get()).rejects.toBeInstanceOf(ForbiddenError);
     await expect(client({}, name).getRepository()).rejects.toBeInstanceOf(ForbiddenError);
@@ -438,22 +531,40 @@ describe("Access control", () => {
     const res = await fetch(documentAPIEndpoint(c, name));
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "Invalid access token" });
+    const tagsUrl = `${c.baseUrl}/r/${name}/api/tags`;
+    expect((await fetch(tagsUrl)).status).toBe(401);
+    const tags = await fetch(`${tagsUrl}?access_token=${encodeURIComponent(accessToken)}`);
+    expect(tags.status).toBe(200);
+    expect(await tags.json()).toEqual([]);
   });
 
-  it.skipIf(!c.accessToken)("REQ-API-006 a valid access token is accepted on a public repository", async () => {
+  it.skipIf(!c.accessToken)("REQ-API-006~ a valid access token is accepted on a public repository", async () => {
     expect((await client({ accessToken: c.accessToken }).getByUID("page", "home")).uid).toBe("home");
   });
 });
 
 describe("Errors and retries", () => {
-  it("REQ-API-017 REQ-SDK-013 unknown ref -> 404 ending with the master ref; the client retries with it", async () => {
+  it("REQ-API-017 REQ-SDK-013~ missing ref -> 400 api_validation_error; unknown ref -> 404 ending with the master ref; the client retries with it", async () => {
     const master = (await cl.getMasterRef()).ref;
+    const missing = await fetch(`${documentAPIEndpoint(c)}/documents/search`);
+    expect(missing.status).toBe(400);
+    expect(((await missing.json()) as { type: string }).type).toBe("api_validation_error");
     const res = await fetch(`${documentAPIEndpoint(c)}/documents/search?ref=bogusbogusbogus1`);
     expect(res.status).toBe(404);
     const body = (await res.json()) as { type: string; message: string };
     expect(body.type).toBe("api_notfound_error");
     expect(body.message.endsWith(` Master ref is: ${master}`)).toBe(true);
     expect((await cl.get({ ref: "bogusbogusbogus1", pageSize: 1 })).results).toHaveLength(1);
+  });
+
+  it.skipIf(!c.supersededRef)("REQ-API-017 REQ-API-008 a superseded master ref stays queryable within the TTL, then answers 410 with the master ref", async () => {
+    const search = (base: string) => fetch(`${documentAPIEndpoint(c, c.repo, base)}/documents/search?ref=${c.supersededRef}&pageSize=1`);
+    expect((await search(c.baseUrl)).status).toBe(200);
+    const master = (await cl.getMasterRef()).ref;
+    expect(master).not.toBe(c.supersededRef);
+    const expired = await search(c.zeroTtlBaseUrl!);
+    expect(expired.status).toBe(410);
+    expect(((await expired.json()) as { message: string }).message.endsWith(` Master ref is: ${master}`)).toBe(true);
   });
 
   it.skipIf(!c.rateLimitedBaseUrl)("REQ-SDK-029 429 carries Retry-After and the client retries until it succeeds", async () => {

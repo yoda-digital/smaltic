@@ -69,7 +69,7 @@ const articleType: CustomTypeModel = {
 };
 
 describe("Custom Types client round-trip", () => {
-  it("REQ-SDK-032 REQ-MOD-013 REQ-WAPI-004 shared slices: insert, get, update, conflict", async () => {
+  it("REQ-SDK-032~ REQ-MOD-013~ REQ-WAPI-004~ shared slices: insert, get, update, conflict", async () => {
     const tc = typesClient(c.writeToken);
     await tc.insertSharedSlice(quoteSlice);
     expect(await tc.getSharedSliceByID("quote")).toMatchObject({ id: "quote", name: "Quote", variations: [{ id: "default" }] });
@@ -79,37 +79,60 @@ describe("Custom Types client round-trip", () => {
     await expect(tc.insertSharedSlice(quoteSlice)).rejects.toBeInstanceOf(ct.ConflictError);
   });
 
-  it("REQ-SDK-032 REQ-WAPI-004 REQ-WAPI-005 custom types: insert, get, list, update, conflict, update of a missing type", async () => {
+  it("REQ-SDK-032~ REQ-WAPI-004~ REQ-WAPI-005 custom types: insert, get, list, update, conflict, update of a missing type", async () => {
     const tc = typesClient(c.writeToken);
     await tc.insertCustomType(articleType);
     expect(await tc.getCustomTypeByID("wc_article")).toMatchObject({ id: "wc_article", label: "Article", repeatable: true, status: true, format: "custom" });
     expect((await tc.getAllCustomTypes()).map((t: CustomTypeModel) => t.id)).toEqual(expect.arrayContaining(["wc_article", "page", "kitchen_sink"]));
     await tc.updateCustomType({ ...articleType, label: "Migrated article" });
     expect((await tc.getCustomTypeByID("wc_article")).label).toBe("Migrated article");
+    // A disabled type stays stored and visible.
+    await tc.insertCustomType({ ...articleType, id: "wc_disabled", label: "Disabled", status: false, repeatable: false, format: "page" });
+    expect(await tc.getCustomTypeByID("wc_disabled")).toMatchObject({ status: false, repeatable: false, format: "page", json: articleType.json });
     await expect(tc.insertCustomType(articleType)).rejects.toBeInstanceOf(ct.ConflictError);
     await expect(tc.updateCustomType({ ...articleType, id: "nope_type" })).rejects.toBeInstanceOf(ct.NotFoundError);
   });
 
-  it("REQ-WAPI-006 REQ-MOD-005 a pushed type shows up in the Content API types map", async () => {
+  it("REQ-WAPI-006~ REQ-MOD-005 a pushed type shows up in the Content API types map", async () => {
     expect((await read.getRepository()).types).toMatchObject({ wc_article: "Migrated article" });
   });
 
-  it("REQ-WAPI-004 remove a type without documents; get -> NotFoundError", async () => {
+  it("REQ-WAPI-004~ remove a type without documents; get -> NotFoundError", async () => {
     const tc = typesClient(c.writeToken);
     await tc.insertCustomType({ ...articleType, id: "wc_temp", label: "Temp" });
     await tc.removeCustomType("wc_temp");
     await expect(tc.getCustomTypeByID("wc_temp")).rejects.toBeInstanceOf(ct.NotFoundError);
   });
 
-  it("REQ-WAPI-001 REQ-WAPI-002 a missing or wrong write token is rejected", async () => {
+  it("REQ-WAPI-001~ REQ-WAPI-002~ a missing or wrong write token is rejected", async () => {
     await expect(typesClient("not-a-token").getAllCustomTypes()).rejects.toBeInstanceOf(ct.UnauthorizedError);
     await expect(typesClient(undefined).getAllCustomTypes()).rejects.toBeInstanceOf(ct.UnauthorizedError);
   });
 });
 
+describe("Migration API write validation", () => {
+  it("REQ-FLD-003 REQ-FLD-005 REQ-FLD-006 REQ-FLD-025 invalid color, out-of-range number, unknown option and out-of-range geopoint are rejected", async () => {
+    const res = await fetch(`${c.baseUrl}/migration-api/documents`, {
+      method: "POST",
+      headers: { repository: c.repo, authorization: `Bearer ${c.writeToken}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "Invalid",
+        type: "kitchen_sink",
+        lang: LOCALE,
+        uid: "invalid",
+        data: { color: "red", bounded: 11, select: "three", geo: { latitude: 91, longitude: 0 } },
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { errors?: Array<{ property: string }> };
+    const props = (body.errors ?? []).map((e) => e.property).join(" ");
+    for (const field of ["color", "bounded", "select", "geo"]) expect(props, JSON.stringify(body)).toContain(field);
+  });
+});
+
 describe("WriteClient migration", () => {
   it(
-    "REQ-SDK-030 REQ-WAPI-009 REQ-WAPI-011 REQ-WAPI-012 REQ-WAPI-016 migrate(): assets, documents with links, createDocumentFromPrismic, updateDocument, reporter, publishMigrationRelease",
+    "REQ-SDK-030~ REQ-API-008 REQ-WAPI-001 REQ-WAPI-009~ REQ-WAPI-011~ REQ-WAPI-012~ REQ-WAPI-016~ migrate(): assets, documents with links, createDocumentFromPrismic, updateDocument, reporter, publishMigrationRelease",
     async () => {
       const wc = writeClient();
       const migration = createMigration();
@@ -189,7 +212,7 @@ describe("WriteClient migration", () => {
   );
 
   it(
-    "REQ-SDK-031 rich text produced by @prismicio/migrate htmlAsRichText is accepted",
+    "REQ-SDK-031~ rich text produced by @prismicio/migrate htmlAsRichText is accepted",
     async () => {
       const wc = writeClient();
       const migration = createMigration();
@@ -208,7 +231,7 @@ describe("WriteClient migration", () => {
     SLOW,
   );
 
-  it("REQ-WAPI-002 the WriteClient with a wrong token gets ForbiddenError", async () => {
+  it("REQ-WAPI-002~ the WriteClient with a wrong token gets ForbiddenError", async () => {
     const migration = createMigration();
     migration.createDocument({ type: "wc_article", uid: "wc-denied", lang: LOCALE, tags: [], data: {} } as never, "Denied");
     await expect(writeClient("not-a-token").migrate(migration)).rejects.toBeInstanceOf(ForbiddenError);
