@@ -17,7 +17,6 @@ const LICENSE = "All Rights Reserved";
 const DEFAULT_PAGE_SIZE = 20;
 
 const NO_STORE_API = "max-age=0, no-store";
-const IMMUTABLE = "public, max-age=31536000, immutable";
 
 /** `forms.everything.fields`, exactly as the live capture (`evidence/api-root.prismic-main.json`), key order included. */
 const EVERYTHING_FIELDS = {
@@ -37,8 +36,11 @@ const EVERYTHING_FIELDS = {
   integrationFieldsRef: { type: "String", multiple: false },
 };
 
-/** Search params carried over into `next_page` / `prev_page`, in emission order (`routes` is dropped, as live). */
-const ECHOED = ["fetch", "fetchLinks", "graphQuery", "lang", "after", "access_token"] as const;
+/**
+ * Search params carried over into `next_page` / `prev_page`, in emission order. `routes` is dropped, as live; so is
+ * `access_token` (R19: the live echo list omits it and the client re-adds its own token when paging).
+ */
+const ECHOED = ["fetch", "fetchLinks", "graphQuery", "lang", "after"] as const;
 
 type Query = Record<string, string | string[] | undefined>;
 
@@ -106,8 +108,15 @@ function rateLimiter(limit: number): preHandlerAsyncHookHandler {
   };
 }
 
-/** `cache-control` of a search response by ref kind: ref-keyed content is immutable, previews never cached. */
-const searchCacheControl = (scope: RefScope) => (scope.kind === "preview" ? "no-store" : IMMUTABLE);
+/**
+ * `cache-control` of a search response (R18). Release and preview content changes under a fixed ref, so it is never
+ * cached. Master/historic content is immutable per ref; on private repos only private caches may keep it, because a
+ * token sent as a header is not part of the cache key.
+ */
+function searchCacheControl(scope: RefScope, repo: Repo): string {
+  if (scope.kind === "release" || scope.kind === "preview") return "no-store";
+  return repo.visibility === "private" ? "private, max-age=31536000, immutable" : "public, max-age=31536000, immutable";
+}
 
 interface AltLang {
   id: string;
@@ -317,7 +326,7 @@ export async function contentApi(app: FastifyInstance): Promise<void> {
           };
         });
 
-        reply.header("cache-control", searchCacheControl(scope));
+        reply.header("cache-control", searchCacheControl(scope, repo));
         return {
           page,
           results_per_page: pageSize,

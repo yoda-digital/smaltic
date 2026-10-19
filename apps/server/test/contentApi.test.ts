@@ -89,6 +89,8 @@ beforeAll(async () => {
   ({ token: releaseToken } = await repos.createToken(repoIds.blog!, "access", "rel", "master+releases"));
 
   await add("secret", "hidden-home", "Secret");
+  await add("secret", "hidden-two", "Secret 2");
+  await add("secret", "hidden-three", "Secret 3");
   ({ token: privateToken } = await repos.createToken(repoIds.secret!, "access", "ro", "master"));
   const srel = await docs.createRelease(repoIds.secret!, "u", "Secret release");
   secretReleaseRef = srel.ref;
@@ -222,9 +224,40 @@ describe("GET /api/v2/documents/search", () => {
     const ref = await master("secret");
     expect(await get(`/r/secret/api/v2/documents/search?ref=${ref}`)).toMatchObject({ status: 401, body: { error: "Invalid access token" } });
     expect((await get("/r/secret/api/v2/documents/search?ref=nope")).status).toBe(404);
-    expect((await get(`/r/secret/api/v2/documents/search?ref=${ref}&access_token=${privateToken}`)).body.total_results_size).toBe(1);
+    expect((await get(`/r/secret/api/v2/documents/search?ref=${ref}&access_token=${privateToken}`)).body.total_results_size).toBe(3);
     await expect(client("secret").get()).rejects.toBeInstanceOf(ForbiddenError);
-    expect((await client("secret", { accessToken: privateToken }).get()).total_results_size).toBe(1);
+    expect((await client("secret", { accessToken: privateToken }).get()).total_results_size).toBe(3);
+  });
+
+  it("private repo, no token, malformed q -> 401 (token is checked before the query is parsed)", async () => {
+    const r = await get(`/r/secret/api/v2/documents/search?${qs({ ref: await master("secret"), q: "[[foo(" })}`);
+    expect(r).toMatchObject({ status: 401, body: { error: "Invalid access token" } });
+  });
+
+  it("cache-control (R18): public master immutable, private master private, release no-store", async () => {
+    const pub = await get(`/r/blog/api/v2/documents/search?ref=${await master("blog")}`);
+    expect(pub.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
+    const priv = await get(`/r/secret/api/v2/documents/search?ref=${await master("secret")}`, { authorization: `Token ${privateToken}` });
+    expect(priv.status).toBe(200);
+    expect(priv.headers["cache-control"]).toBe("private, max-age=31536000, immutable");
+    const historic = await get(`/r/blog/api/v2/documents/search?ref=${historicRef}`);
+    expect(historic.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
+    const [orel] = await srv.sql`select ref from releases where repo_id = ${repoIds.openrepo!}`;
+    const rel = await get(`/r/openrepo/api/v2/documents/search?ref=${orel!.ref}`);
+    expect(rel.status).toBe(200);
+    expect(rel.headers["cache-control"]).toBe("no-store");
+  });
+
+  it("next_page does not echo access_token (R19); dangerouslyGetAll with accessToken still pages through", async () => {
+    const r = await get(`/r/secret/api/v2/documents/search?${qs({ ref: await master("secret"), pageSize: "1", access_token: privateToken })}`);
+    expect(r.body.total_pages).toBe(3);
+    const next = new URL(r.body.next_page);
+    expect(next.searchParams.has("access_token")).toBe(false);
+    expect(next.searchParams.get("page")).toBe("2");
+    const p2 = await get(`/r/secret/api/v2/documents/search?${qs({ ref: await master("secret"), pageSize: "1", page: "2", access_token: privateToken })}`);
+    expect(new URL(p2.body.prev_page).searchParams.has("access_token")).toBe(false);
+    const all = await client("secret", { accessToken: privateToken }).dangerouslyGetAll({ pageSize: 1 });
+    expect(all.map((d) => d.uid).sort()).toEqual(["hidden-home", "hidden-three", "hidden-two"]);
   });
 
   it("a release ref with a master-scope token on a private repo -> 401", async () => {
@@ -293,7 +326,8 @@ describe("official client end to end (refs, releases, previews)", () => {
     expect(doc.data.title).toEqual(h1("Spring sale"));
     await expect(client().getByUID("page", "spring")).rejects.toThrow();
     const r = await get(`/r/blog/api/v2/documents/search?${qs({ ref: (await c.getReleaseByLabel("Spring")).ref, access_token: releaseToken })}`);
-    expect(r.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
+    expect(r.status).toBe(200);
+    expect(r.headers["cache-control"]).toBe("no-store");
   });
 
   it("a release ref without a master+releases token on a public repo -> 401", async () => {
