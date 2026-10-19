@@ -1,0 +1,93 @@
+=== GET https://customtypes.prismic.io/customtypes (repository: prismic-main)
+HTTP/2 403 
+date: Mon, 19 Oct 2026 11:16:38 GMT
+content-type: application/json
+content-length: 110
+x-amzn-requestid: ddac6356-ef59-4ebd-a7ef-96e2ff1187dc
+x-amzn-errortype: AccessDeniedException
+x-amz-apigw-id: FfRTkHgZIAMEVww=
+access-control-allow-credentials: true
+
+=== GET https://customtypes.prismic.io/slices (repository: prismic-main)
+HTTP/2 403 
+date: Mon, 19 Oct 2026 11:16:39 GMT
+content-type: application/json
+content-length: 110
+x-amzn-requestid: 1218e6db-70c4-487b-9b5b-d44f03b2f5d7
+x-amzn-errortype: AccessDeniedException
+x-amz-apigw-id: FfRTqEoeIAMED4w=
+access-control-allow-credentials: true
+
+=== GET https://migration.prismic.io/documents (repository: prismic-main)
+HTTP/2 403 
+date: Mon, 19 Oct 2026 11:16:39 GMT
+content-type: application/json
+content-length: 42
+x-amzn-requestid: 1e4c036c-ffa8-4d5e-8cc9-22cda9ebc70a
+x-amzn-errortype: MissingAuthenticationTokenException
+x-amz-apigw-id: FfRTwGzPIAMECiA=
+access-control-allow-credentials: true
+
+=== GET https://asset-api.prismic.io/assets (repository: prismic-main)
+HTTP/2 403 
+date: Mon, 19 Oct 2026 11:16:40 GMT
+content-type: application/json
+content-length: 110
+ratelimit-remaining: 9
+ratelimit-reset: 1
+x-ratelimit-limit-second: 10
+x-ratelimit-remaining-second: 9
+
+=== GET https://prismic-main.prismic.io/api/v2 (repository: prismic-main)
+HTTP/2 200 
+date: Mon, 19 Oct 2026 11:16:40 GMT
+content-type: application/json
+content-length: 2875
+x-ratelimit-limit: 200
+x-ratelimit-remaining: 199
+x-ratelimit-reset: 1792408601
+x-amzn-requestid: 6692957d-ca5a-467e-91fc-e6e58a8a632c
+
+=== GET https://auth.prismic.io/login (repository: prismic-main)
+HTTP/2 403 
+content-type: application/json
+content-length: 42
+date: Mon, 19 Oct 2026 11:16:41 GMT
+x-amz-apigw-id: FfRUAFGBIAMEgEA=
+x-amzn-requestid: b2abcfe1-5a4b-486b-869f-571499150151
+x-amzn-errortype: MissingAuthenticationTokenException
+x-cache: Error from cloudfront
+
+=== GET https://user-service.prismic.io/profile (repository: prismic-main)
+HTTP/2 403 
+date: Mon, 19 Oct 2026 11:16:41 GMT
+content-type: application/json
+content-length: 110
+x-amzn-requestid: 13e8db18-fb2f-4042-8073-f30eb3536bfc
+access-control-allow-headers: Authorization,Content-Type,Accept,Repository
+x-amzn-errortype: AccessDeniedException
+x-amz-apigw-id: FfRUEFlIIAMEHNw=
+
+=== GET https://prismic-main.cdn.prismic.io/api/v2/documents/search?ref=x&access_token=bad (repository: prismic-main)
+HTTP/2 404 
+content-type: application/json
+content-length: 135
+date: Mon, 19 Oct 2026 11:16:42 GMT
+x-amzn-trace-id: Root=1-6ad5fc1a-14c2b52f14ee009a3307f81c
+x-ratelimit-limit: 200
+x-ratelimit-remaining: 199
+x-ratelimit-reset: 1792408603
+
+=== POST auth.prismic.io/login (bad creds)
+HTTP/2 401 
+content-type: application/json
+content-length: 0
+date: Mon, 19 Oct 2026 11:16:44 GMT
+x-amzn-trace-id: Root=1-6ad5fc1a-6e5303470681265440ccebe3;Parent=734c1c317014c43a;Sampled=0;Lineage=1:9958000a:0
+x-amzn-requestid: 39cfd39a-022d-4d36-a98b-c9588058faaa
+access-control-allow-origin: *
+access-control-allow-headers: Content-Type,repository,Authorization
+x-amz-apigw-id: FfRUMFCeIAMEIkA=
+access-control-allow-methods: OPTIONS,POST,GET
+x-cache: Error from cloudfront
+via: 1.1 c6b94923ae2f2485371ece5884b8905e.cloudfront.net (CloudFront)

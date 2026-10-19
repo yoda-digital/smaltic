@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+data/
+*.log
+coverage
+# Local mirror of Prismic's docs (their copyright) — regenerate with docs/research/tools/crawl-docs.py
+docs/research/prismic-docs-mirror/pages/
+# Raw Prismic captures (their content/code) stay local; sanitized copies are committed
+docs/research/evidence/raw/

@@ -1,0 +1,17 @@
+HTTP/2 200 
+content-type: application/json
+content-length: 175
+date: Mon, 19 Oct 2026 11:15:15 GMT
+x-local-cache: MISS
+x-ratelimit-limit: 200
+x-ratelimit-remaining: 197
+x-ratelimit-reset: 1792408514
+x-amzn-requestid: 62c3abf5-61d8-4c0d-bc41-d70c524f941e
+x-amz-apigw-id: FfRGdE6QoAMFktQ=
+x-amzn-trace-id: Root=1-6ad5fbc2-0b6140510b759f271e2da6d9
+access-control-allow-origin: *
+x-cache: Miss from cloudfront
+via: 1.1 3b1578e183b63617888fbfb492903da4.cloudfront.net (CloudFront)
+x-amz-cf-pop: OTP50-P2
+x-amz-cf-id: Gu8nkOvWp3ToOY7mdYJ3-D_xR94JcvMsiXC3etr0ckZhlrB4OzOkIA==
+

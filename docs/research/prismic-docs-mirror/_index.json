@@ -1,0 +1,578 @@
+{
+ "https://prismic.io/docs": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/account": {
+  "file": "account.md",
+  "bytes": 1388
+ },
+ "https://prismic.io/docs/account-setup": {
+  "file": "account-setup.md",
+  "bytes": 3489
+ },
+ "https://prismic.io/docs/ai": {
+  "file": "ai.md",
+  "bytes": 6367
+ },
+ "https://prismic.io/docs/api-authentication": {
+  "file": "api-authentication.md",
+  "bytes": 3115
+ },
+ "https://prismic.io/docs/apis": {
+  "file": "apis.md",
+  "bytes": 3533
+ },
+ "https://prismic.io/docs/archive-pages": {
+  "file": "archive-pages.md",
+  "bytes": 1546
+ },
+ "https://prismic.io/docs/asset-api-technical-reference": {
+  "file": "asset-api-technical-reference.md",
+  "bytes": 4457
+ },
+ "https://prismic.io/docs/begin-creating": {
+  "file": "begin-creating.md",
+  "bytes": 4051
+ },
+ "https://prismic.io/docs/billing": {
+  "file": "billing.md",
+  "bytes": 8996
+ },
+ "https://prismic.io/docs/cli": {
+  "file": "cli.md",
+  "bytes": 4671
+ },
+ "https://prismic.io/docs/concepts": {
+  "file": "concepts.md",
+  "bytes": 1373
+ },
+ "https://prismic.io/docs/content-api": {
+  "file": "content-api.md",
+  "bytes": 54168
+ },
+ "https://prismic.io/docs/content-modeling": {
+  "file": "content-modeling.md",
+  "bytes": 11271
+ },
+ "https://prismic.io/docs/create-pages": {
+  "file": "create-pages.md",
+  "bytes": 9289
+ },
+ "https://prismic.io/docs/custom-types-api": {
+  "file": "custom-types-api.md",
+  "bytes": 14550
+ },
+ "https://prismic.io/docs/environments": {
+  "file": "environments.md",
+  "bytes": 7952
+ },
+ "https://prismic.io/docs/fetch-content": {
+  "file": "fetch-content.md",
+  "bytes": 26675
+ },
+ "https://prismic.io/docs/fields": {
+  "file": "fields.md",
+  "bytes": 2091
+ },
+ "https://prismic.io/docs/fields/boolean": {
+  "file": "fields/boolean.md",
+  "bytes": 3842
+ },
+ "https://prismic.io/docs/fields/color": {
+  "file": "fields/color.md",
+  "bytes": 3218
+ },
+ "https://prismic.io/docs/fields/content-relationship": {
+  "file": "fields/content-relationship.md",
+  "bytes": 20031
+ },
+ "https://prismic.io/docs/fields/date": {
+  "file": "fields/date.md",
+  "bytes": 4325
+ },
+ "https://prismic.io/docs/fields/embed": {
+  "file": "fields/embed.md",
+  "bytes": 5443
+ },
+ "https://prismic.io/docs/fields/geopoint": {
+  "file": "fields/geopoint.md",
+  "bytes": 3558
+ },
+ "https://prismic.io/docs/fields/image": {
+  "file": "fields/image.md",
+  "bytes": 7422
+ },
+ "https://prismic.io/docs/fields/integration": {
+  "file": "fields/integration.md",
+  "bytes": 15785
+ },
+ "https://prismic.io/docs/fields/link": {
+  "file": "fields/link.md",
+  "bytes": 8671
+ },
+ "https://prismic.io/docs/fields/link-to-media": {
+  "file": "fields/link-to-media.md",
+  "bytes": 7082
+ },
+ "https://prismic.io/docs/fields/number": {
+  "file": "fields/number.md",
+  "bytes": 3087
+ },
+ "https://prismic.io/docs/fields/repeatable-group": {
+  "file": "fields/repeatable-group.md",
+  "bytes": 4922
+ },
+ "https://prismic.io/docs/fields/rich-text": {
+  "file": "fields/rich-text.md",
+  "bytes": 17417
+ },
+ "https://prismic.io/docs/fields/select": {
+  "file": "fields/select.md",
+  "bytes": 3600
+ },
+ "https://prismic.io/docs/fields/table": {
+  "file": "fields/table.md",
+  "bytes": 10719
+ },
+ "https://prismic.io/docs/fields/text": {
+  "file": "fields/text.md",
+  "bytes": 3017
+ },
+ "https://prismic.io/docs/fields/timestamp": {
+  "file": "fields/timestamp.md",
+  "bytes": 4294
+ },
+ "https://prismic.io/docs/fields/uid": {
+  "file": "fields/uid.md",
+  "bytes": 3079
+ },
+ "https://prismic.io/docs/frameworks": {
+  "file": "frameworks.md",
+  "bytes": 674
+ },
+ "https://prismic.io/docs/from-wordpress": {
+  "file": "from-wordpress.md",
+  "bytes": 10968
+ },
+ "https://prismic.io/docs/glossary": {
+  "file": "glossary.md",
+  "bytes": 15494
+ },
+ "https://prismic.io/docs/graphql-technical-reference": {
+  "file": "graphql-technical-reference.md",
+  "bytes": 15394
+ },
+ "https://prismic.io/docs/help-center": {
+  "file": "help-center.md",
+  "bytes": 1139
+ },
+ "https://prismic.io/docs/icon.svg": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/integrations": {
+  "file": "integrations.md",
+  "bytes": 914
+ },
+ "https://prismic.io/docs/legacy-builder": {
+  "file": "legacy-builder.md",
+  "bytes": 13719
+ },
+ "https://prismic.io/docs/locales": {
+  "file": "locales.md",
+  "bytes": 3792
+ },
+ "https://prismic.io/docs/localization": {
+  "file": "localization.md",
+  "bytes": 4903
+ },
+ "https://prismic.io/docs/manage-prismic": {
+  "file": "manage-prismic.md",
+  "bytes": 750
+ },
+ "https://prismic.io/docs/mcp": {
+  "file": "mcp.md",
+  "bytes": 13153
+ },
+ "https://prismic.io/docs/media": {
+  "file": "media.md",
+  "bytes": 3460
+ },
+ "https://prismic.io/docs/migration": {
+  "file": "migration.md",
+  "bytes": 5111
+ },
+ "https://prismic.io/docs/migration-api-technical-reference": {
+  "file": "migration-api-technical-reference.md",
+  "bytes": 17206
+ },
+ "https://prismic.io/docs/migration/programmatic": {
+  "file": "migration/programmatic.md",
+  "bytes": 20643
+ },
+ "https://prismic.io/docs/nextjs": {
+  "file": "nextjs.md",
+  "bytes": 24887
+ },
+ "https://prismic.io/docs/nuxt": {
+  "file": "nuxt.md",
+  "bytes": 18574
+ },
+ "https://prismic.io/docs/onboard-content-managers": {
+  "file": "onboard-content-managers.md",
+  "bytes": 4835
+ },
+ "https://prismic.io/docs/organize-pages": {
+  "file": "organize-pages.md",
+  "bytes": 6084
+ },
+ "https://prismic.io/docs/overview": {
+  "file": "overview.md",
+  "bytes": 2543
+ },
+ "https://prismic.io/docs/page-fields": {
+  "file": "page-fields.md",
+  "bytes": 5093
+ },
+ "https://prismic.io/docs/previews": {
+  "file": "previews.md",
+  "bytes": 6700
+ },
+ "https://prismic.io/docs/prismic-client-v6-migration-guide": {
+  "file": "prismic-client-v6-migration-guide.md",
+  "bytes": 11957
+ },
+ "https://prismic.io/docs/prismic-dom-technical-reference": {
+  "file": "prismic-dom-technical-reference.md",
+  "bytes": 7900
+ },
+ "https://prismic.io/docs/prismic-helpers-v2-migration-guide": {
+  "file": "prismic-helpers-v2-migration-guide.md",
+  "bytes": 7216
+ },
+ "https://prismic.io/docs/prismicio-client-v7-migration-guide": {
+  "file": "prismicio-client-v7-migration-guide.md",
+  "bytes": 6249
+ },
+ "https://prismic.io/docs/prismicio-vue-v4-migration-guide": {
+  "file": "prismicio-vue-v4-migration-guide.md",
+  "bytes": 3427
+ },
+ "https://prismic.io/docs/prismic-react-v2-migration-guide": {
+  "file": "prismic-react-v2-migration-guide.md",
+  "bytes": 10165
+ },
+ "https://prismic.io/docs/releases": {
+  "file": "releases.md",
+  "bytes": 3734
+ },
+ "https://prismic.io/docs/repository-api-technical-reference": {
+  "file": "repository-api-technical-reference.md",
+  "bytes": 7655
+ },
+ "https://prismic.io/docs/repository-settings": {
+  "file": "repository-settings.md",
+  "bytes": 3355
+ },
+ "https://prismic.io/docs/routes": {
+  "file": "routes.md",
+  "bytes": 8716
+ },
+ "https://prismic.io/docs/slice-machine": {
+  "file": "slice-machine.md",
+  "bytes": 41286
+ },
+ "https://prismic.io/docs/slices": {
+  "file": "slices.md",
+  "bytes": 14388
+ },
+ "https://prismic.io/docs/sveltekit": {
+  "file": "sveltekit.md",
+  "bytes": 24863
+ },
+ "https://prismic.io/docs/tags-api-technical-reference": {
+  "file": "tags-api-technical-reference.md",
+  "bytes": 1505
+ },
+ "https://prismic.io/docs/technical-reference/nuxtjs-prismic/v4": {
+  "file": "technical-reference/nuxtjs-prismic/v4.md",
+  "bytes": 12313
+ },
+ "https://prismic.io/docs/technical-reference/nuxtjs-prismic/v5": {
+  "file": "technical-reference/nuxtjs-prismic/v5.md",
+  "bytes": 12724
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-client/v5": {
+  "file": "technical-reference/prismicio-client/v5.md",
+  "bytes": 9387
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-client/v6": {
+  "file": "technical-reference/prismicio-client/v6.md",
+  "bytes": 32082
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-client/v7": {
+  "file": "technical-reference/prismicio-client/v7.md",
+  "bytes": 128874
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-helpers/v2": {
+  "file": "technical-reference/prismicio-helpers/v2.md",
+  "bytes": 14483
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-migrate/v0": {
+  "file": "technical-reference/prismicio-migrate/v0.md",
+  "bytes": 4401
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-next/v0.1": {
+  "file": "technical-reference/prismicio-next/v0.1.md",
+  "bytes": 9586
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-next/v1": {
+  "file": "technical-reference/prismicio-next/v1.md",
+  "bytes": 15882
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-next/v2": {
+  "file": "technical-reference/prismicio-next/v2.md",
+  "bytes": 21322
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-react/v2": {
+  "file": "technical-reference/prismicio-react/v2.md",
+  "bytes": 24953
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-react/v3": {
+  "file": "technical-reference/prismicio-react/v3.md",
+  "bytes": 25079
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-richtext/v2": {
+  "file": "technical-reference/prismicio-richtext/v2.md",
+  "bytes": 9627
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-svelte/v0": {
+  "file": "technical-reference/prismicio-svelte/v0.md",
+  "bytes": 11021
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-svelte/v2": {
+  "file": "technical-reference/prismicio-svelte/v2.md",
+  "bytes": 20340
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-svelte/v3": {
+  "file": "technical-reference/prismicio-svelte/v3.md",
+  "bytes": 21268
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-vue/v2": {
+  "file": "technical-reference/prismicio-vue/v2.md",
+  "bytes": 14422
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-vue/v3": {
+  "file": "technical-reference/prismicio-vue/v3.md",
+  "bytes": 34036
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-vue/v4": {
+  "file": "technical-reference/prismicio-vue/v4.md",
+  "bytes": 33323
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-vue/v5": {
+  "file": "technical-reference/prismicio-vue/v5.md",
+  "bytes": 43265
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-vue/v6": {
+  "file": "technical-reference/prismicio-vue/v6.md",
+  "bytes": 33186
+ },
+ "https://prismic.io/docs/technical-reference/prismic-ts-codegen/v1": {
+  "file": "technical-reference/prismic-ts-codegen/v1.md",
+  "bytes": 9963
+ },
+ "https://prismic.io/docs/technical-reference/slicemachine-adapter-next/v0.1": {
+  "file": "technical-reference/slicemachine-adapter-next/v0.1.md",
+  "bytes": 3566
+ },
+ "https://prismic.io/docs/technical-reference/slicemachine-adapter-nuxt2/v0.3": {
+  "file": "technical-reference/slicemachine-adapter-nuxt2/v0.3.md",
+  "bytes": 3352
+ },
+ "https://prismic.io/docs/technical-reference/slicemachine-adapter-nuxt/v0.1": {
+  "file": "technical-reference/slicemachine-adapter-nuxt/v0.1.md",
+  "bytes": 3257
+ },
+ "https://prismic.io/docs/technical-reference/slicemachine-adapter-sveltekit/v0.0": {
+  "file": "technical-reference/slicemachine-adapter-sveltekit/v0.0.md",
+  "bytes": 3332
+ },
+ "https://prismic.io/docs/technical-reference/slice-machine-ui/v0": {
+  "file": "technical-reference/slice-machine-ui/v0.md",
+  "bytes": 2614
+ },
+ "https://prismic.io/docs/technical-reference/slice-machine-ui/v1": {
+  "file": "technical-reference/slice-machine-ui/v1.md",
+  "bytes": 4317
+ },
+ "https://prismic.io/docs/type-builder": {
+  "file": "type-builder.md",
+  "bytes": 2152
+ },
+ "https://prismic.io/docs/unsupported-integration": {
+  "file": "unsupported-integration.md",
+  "bytes": 3662
+ },
+ "https://prismic.io/docs/use-prismic": {
+  "file": "use-prismic.md",
+  "bytes": 1248
+ },
+ "https://prismic.io/docs/users": {
+  "file": "users.md",
+  "bytes": 5571
+ },
+ "https://prismic.io/docs/webhooks": {
+  "file": "webhooks.md",
+  "bytes": 14111
+ },
+ "https://prismic.io/docs/welcome": {
+  "file": "welcome.md",
+  "bytes": 461
+ },
+ "https://prismic.io/docs/with-clay": {
+  "file": "with-clay.md",
+  "bytes": 8767
+ },
+ "https://prismic.io/docs/with-cloudinary": {
+  "file": "with-cloudinary.md",
+  "bytes": 33016
+ },
+ "https://prismic.io/docs/with-hubspot": {
+  "file": "with-hubspot.md",
+  "bytes": 39426
+ },
+ "https://prismic.io/docs/with-lokalise": {
+  "file": "with-lokalise.md",
+  "bytes": 27333
+ },
+ "https://prismic.io/docs/with-shopify": {
+  "file": "with-shopify.md",
+  "bytes": 37888
+ },
+ "https://prismic.io/docs/work-with-a-developer": {
+  "file": "work-with-a-developer.md",
+  "bytes": 3332
+ },
+ "https://prismic.io/docs/api": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-client": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/integration": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/route-resolver": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/guides/page-builder": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/custom-types": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/guides/manage-images": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/technical-reference/prismic-vue/v4": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/technical-reference/prismic-svelte/v0": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/guides/create-pages": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/guides/organize-content": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/image": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/guides/images-and-files": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/guides/overview": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/docs/guides/schedule-publishing": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/rich-text": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/admin/users-access": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/guides/spaces": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/field": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/guides/archive-delete": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-migrate": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/languages-locales": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/content-relationship": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/preview": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/guides": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/guides/manage-users": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-vue": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/technologies/prismic-react-v2-migration-guide": {
+  "file": "technologies/prismic-react-v2-migration-guide.md",
+  "bytes": 10165
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-react": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/technical-reference/slice-machine-ui": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/technical-reference/slicemachine-adapter-next": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/technical-reference/slicemachine-adapter-nuxt": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/technical-reference/slicemachine-adapter-sveltekit": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/technical-reference/prismic-ts-codegen": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-next": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/next-slicezone-deprecation-guide": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/slice": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/technical-reference/prismicio-helpers": {
+  "error": "HTTP Error 404: Not Found"
+ },
+ "https://prismic.io/docs/technologies/custom-types-api": {
+  "file": "technologies/custom-types-api.md",
+  "bytes": 14550
+ },
+ "https://prismic.io/docs/technical-reference/slicemachine-adapter-nuxt2": {
+  "error": "HTTP Error 404: Not Found"
+ }
+}

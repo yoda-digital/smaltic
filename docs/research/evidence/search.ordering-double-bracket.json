@@ -1,0 +1,1 @@
+{"type":"api_parsing_error","message":"']' expected but '[' found on line:1 col:2 in query '[[at(document.type,\"blog\")]]'\n[[at(document.type,\"blog\")]]\n ^\n","pos":{"line":1,"column":2,"location":"ordering"}}

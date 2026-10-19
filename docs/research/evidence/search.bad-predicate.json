@@ -1,0 +1,1 @@
+{"type":"api_parsing_error","message":"unrecognized attribute 'foo' on line:1 col:3 in query '[[foo(document.type,\"blog\")]]'\n[[foo(document.type,\"blog\")]]\n  ^\n","pos":{"line":1,"column":3,"id":0,"location":"query"}}

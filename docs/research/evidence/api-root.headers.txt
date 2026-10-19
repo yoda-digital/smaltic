@@ -1,0 +1,13 @@
+HTTP/2 200 
+content-type: application/json
+content-length: 3170
+x-prismic-version: 6
+cache-control: max-age=0, no-store
+access-control-allow-origin: *
+x-prismic-region: eu-west-2
+date: Mon, 19 Oct 2026 11:14:40 GMT
+x-cache: Miss from cloudfront
+via: 1.1 40fefb39662990e7613aeb1401eaf50a.cloudfront.net (CloudFront)
+x-amz-cf-pop: OTP50-P2
+x-amz-cf-id: UUdKk3_fgeCblOKkFM4YC1nik5wlnpuEDpychSkBPG90rWiIectZmg==
+
