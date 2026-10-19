@@ -41,12 +41,24 @@ function validate(kind: Kind, model: unknown): Model {
   return model as Model;
 }
 
+/** Non-deleted documents (draft, live or archived) of a custom type. */
+export function countDocumentsOfType(sql: Sql): CountDocumentsOfType {
+  return async (repoId, typeId) => {
+    const [r] = await sql`select count(*)::int as n from documents
+      where repo_id = ${repoId} and type = ${typeId} and deleted_at is null`;
+    return r!.n as number;
+  };
+}
+
 export class ModelService {
+  private countDocumentsOfType: CountDocumentsOfType;
   constructor(
     private sql: Sql,
-    private countDocumentsOfType: CountDocumentsOfType = async () => 0,
+    countDocs?: CountDocumentsOfType,
     private changedBy: string | null = null,
-  ) {}
+  ) {
+    this.countDocumentsOfType = countDocs ?? countDocumentsOfType(sql);
+  }
 
   listTypes(repoId: string) { return this.list("custom_type", repoId); }
   getType(repoId: string, id: string) { return this.get("custom_type", repoId, id); }
