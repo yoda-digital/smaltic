@@ -94,6 +94,7 @@ class Renderer {
       if (!isStr(b.url) && !isStr(b.id)) return null;
       const out: Record<string, unknown> = { type: 'image' };
       for (const k of ['url', 'alt', 'copyright', 'dimensions', 'id', 'edit']) if (b[k] !== undefined) out[k] = b[k];
+      this.assetUrl(out, true);
       if (isObj(b.linkTo)) {
         const l = this.link(undefined, b.linkTo, path, false);
         if (l.link_type !== 'Any') out.linkTo = l;
@@ -123,11 +124,11 @@ class Renderer {
 
   private image(cfg: Record<string, any>, v: unknown): Record<string, unknown> {
     if (!isObj(v) || (!isStr(v.id) && !isStr(v.url))) return {};
-    const main = pick(v, IMAGE_KEYS);
+    const main = this.assetUrl(pick(v, IMAGE_KEYS), true);
     const out: Record<string, unknown> = { ...main };
     // "The Prismic Rest API will always return thumbnail values if the base size is filled" (C§2.2).
     for (const t of (cfg.thumbnails ?? []) as Array<{ name: string; width?: number | null; height?: number | null }>) {
-      if (isObj(v[t.name]) && (isStr(v[t.name].id) || isStr(v[t.name].url))) out[t.name] = pick(v[t.name], IMAGE_KEYS);
+      if (isObj(v[t.name]) && (isStr(v[t.name].id) || isStr(v[t.name].url))) out[t.name] = this.assetUrl(pick(v[t.name], IMAGE_KEYS), true);
       else {
         const thumb: Record<string, unknown> = { ...main };
         if (typeof t.width === 'number' && typeof t.height === 'number') thumb.dimensions = { width: t.width, height: t.height };
@@ -135,6 +136,17 @@ class Renderer {
       }
     }
     return out;
+  }
+
+  /** Rewrites `o.url` (a fresh object owned by the renderer) to the asset's canonical URL (R12). */
+  private assetUrl(o: Record<string, unknown>, keepQuery: boolean): Record<string, unknown> {
+    if (!this.rctx.resolveAssetUrl || !isStr(o.id)) return o;
+    const base = this.rctx.resolveAssetUrl(o.id);
+    if (base === null) return o;
+    const stored = isStr(o.url) ? o.url : '';
+    const q = stored.indexOf('?');
+    o.url = keepQuery && q >= 0 ? base + stored.slice(q) : base;
+    return o;
   }
 
   // ---- links ----
@@ -170,6 +182,7 @@ class Renderer {
     if (lt === 'Media') {
       const out: Record<string, unknown> = { link_type: 'Media', ...key };
       for (const k of MEDIA_KEYS) if (src[k] !== undefined) out[k] = src[k];
+      this.assetUrl(out, false);
       return extras(out);
     }
     const out: Record<string, unknown> = { link_type: 'Web', ...key, url: src.url };

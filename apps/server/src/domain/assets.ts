@@ -107,6 +107,11 @@ function checkMeta(meta: Record<string, unknown>): void {
   }
 }
 
+/** `/assets/<repo>/<id>_<filename>`: the SDK derives the filename from the part after the last `_` (C§5.3). */
+export function assetPath(asset: Pick<Asset, "repoName" | "id" | "filename">): string {
+  return `/assets/${encodeURIComponent(asset.repoName)}/${asset.id}_${encodeURIComponent(asset.filename)}`;
+}
+
 const tx = <T>(sql: Sql, fn: (t: Sql) => Promise<T>): Promise<T> =>
   sql.begin((t) => fn(t as unknown as Sql)) as Promise<T>;
 
@@ -211,7 +216,7 @@ export class AssetService {
 
   /** `/assets/<repo>/<id>_<filename>`: the SDK derives the filename from the part after the last `_` (C§5.3). */
   assetPath(asset: Pick<Asset, "repoName" | "id" | "filename">): string {
-    return `/assets/${encodeURIComponent(asset.repoName)}/${asset.id}_${encodeURIComponent(asset.filename)}`;
+    return assetPath(asset);
   }
 
   /** Canonical asset URL (R12): `<origin>/assets/<repo>/<id>_<filename>`, never with the `/r/` prefix. */

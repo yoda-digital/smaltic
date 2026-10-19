@@ -118,6 +118,32 @@ describe('renderDocumentData', () => {
     expect(out.mobile).toMatchObject({ id: 'ASSET0000000001', dimensions: { width: 400, height: 300 } });
   });
 
+  it('rebuilds image and media urls through resolveAssetUrl, keeping image query strings (R12)', () => {
+    const seen: string[] = [];
+    const ctx = {
+      ...rctx(),
+      resolveAssetUrl: (id: string) => {
+        seen.push(id);
+        return id === 'ASSET0000000001' ? `https://cms.test/assets/repo/${id}_a.png` : null;
+      },
+    };
+    const stored = {
+      image: { dimensions: { width: 8, height: 6 }, url: 'https://old.test/a.png?auto=format&rect=0,0,8,6', id: 'ASSET0000000001', mobile: { url: 'https://old.test/a.png?w=4', id: 'ASSET0000000001' } },
+      body: [{ type: 'image', url: 'https://old.test/a.png', id: 'ASSET0000000001', dimensions: { width: 8, height: 6 } }],
+      media: { link_type: 'Media', id: 'ASSET0000000001', url: 'https://old.test/a.png?x=1', name: 'a.png', kind: 'image', size: '1' },
+      link: { link_type: 'Media', id: 'MISSING00000001', url: 'https://old.test/gone.pdf', name: 'gone.pdf', kind: 'file', size: '1' },
+    };
+    const out = renderDocumentData(allFields, shared, stored, ctx) as Record<string, any>;
+    expect(out.image.url).toBe('https://cms.test/assets/repo/ASSET0000000001_a.png?auto=format&rect=0,0,8,6');
+    expect(out.image.mobile.url).toBe('https://cms.test/assets/repo/ASSET0000000001_a.png?w=4');
+    expect(out.body[0].url).toBe('https://cms.test/assets/repo/ASSET0000000001_a.png');
+    expect(out.media.url).toBe('https://cms.test/assets/repo/ASSET0000000001_a.png');
+    expect(out.link.url).toBe('https://old.test/gone.pdf');
+    expect(new Set(seen)).toEqual(new Set(['ASSET0000000001', 'MISSING00000001']));
+    // Input is not mutated.
+    expect(stored.image.url).toBe('https://old.test/a.png?auto=format&rect=0,0,8,6');
+  });
+
   it('collects Document link ids for batch loading', async () => {
     const stored = {
       rel: { link_type: 'Document', id: 'A000000000000001' },

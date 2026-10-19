@@ -73,6 +73,11 @@ export interface RenderCtx {
    * rich-text field's path. `field` is the Link model, or undefined for links inside rich text.
    */
   resolveLink(id: string, path: string, field?: Field): LinkedDocStub | BrokenStub;
+  /**
+   * Canonical URL of a media-library asset (R12), without query string; `null` = unknown asset (the
+   * stored URL is kept). Images keep the stored URL's query string (imgix params); media links don't.
+   */
+  resolveAssetUrl?(id: string): string | null;
 }
 
 /** Loose field view used internally; the zod types are too deep to switch over ergonomically. */
