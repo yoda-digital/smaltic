@@ -1,5 +1,5 @@
 import { newKey } from '../../ids.js';
-import { isObj, isStr, UUID_RE } from '../shared.js';
+import { findAsset, isObj, isStr, UUID_RE } from '../shared.js';
 import type { NormEnv } from './env.js';
 
 /** Id the official client writes for links that were broken in the source repository (C§5.2). */
@@ -7,11 +7,11 @@ export const BROKEN_LINK_ID = '_____broken_____';
 
 export type KeyMode = 'filled' | 'always' | 'never';
 
-export function normalizeRepeatLink(env: NormEnv, cfg: Record<string, any>, v: unknown, path: string) {
+export async function normalizeRepeatLink(env: NormEnv, cfg: Record<string, any>, v: unknown, path: string) {
   if (v === null || v === undefined) return [];
   const list = Array.isArray(v) ? v : [v];
   const out: unknown[] = [];
-  for (const [i, l] of list.entries()) if (l) out.push(normalizeLink(env, cfg, l, `${path}.${i}`, 'always'));
+  for (const [i, l] of list.entries()) if (l) out.push(await normalizeLink(env, cfg, l, `${path}.${i}`, 'always'));
   return out;
 }
 
@@ -19,7 +19,7 @@ export function normalizeRepeatLink(env: NormEnv, cfg: Record<string, any>, v: u
  * Field links get a `key`: `filled` adds one only to filled links (empty single links stay `{link_type}`),
  * `always` adds one to every item of a repeatable link, `never` is for links inside rich text.
  */
-export function normalizeLink(env: NormEnv, cfg: Record<string, any>, v: unknown, path: string, keyMode: KeyMode): Record<string, unknown> {
+export async function normalizeLink(env: NormEnv, cfg: Record<string, any>, v: unknown, path: string, keyMode: KeyMode): Promise<Record<string, unknown>> {
   const extras = (src: Record<string, any>, out: Record<string, unknown>) => {
     if (isStr(src.text)) out.text = src.text;
     if (isStr(src.variant)) out.variant = src.variant;
@@ -62,12 +62,21 @@ export function normalizeLink(env: NormEnv, cfg: Record<string, any>, v: unknown
     case 'Media': {
       if (!isStr(v.id) || v.id === '') return empty(v);
       if (select && select !== 'media') return wrongSelect(select === 'web' ? 'Web' : 'Document');
-      if (!env.ctx.assetExists(v.id)) {
+      const asset = await findAsset(env.ctx, v.id);
+      if (asset === false) {
         env.err(`${path}.id`, v.id, `The asset ${v.id} does not exist`);
         return empty(v);
       }
       const out: Record<string, unknown> = { link_type: 'Media', ...key(v, true) };
-      for (const k of ['kind', 'id', 'url', 'name', 'size', 'height', 'width']) if (v[k] !== undefined) out[k] = v[k];
+      if (asset === true) {
+        for (const k of ['kind', 'id', 'url', 'name', 'size', 'height', 'width']) if (v[k] !== undefined) out[k] = v[k];
+      } else {
+        // Content API shape (C§2.3): kind is "image" or "file"; size/width/height are strings.
+        Object.assign(out, { kind: asset.kind === 'image' ? 'image' : 'file', id: asset.id, url: asset.url, name: asset.filename, size: String(asset.size) });
+        if (asset.kind === 'image' && typeof asset.width === 'number' && typeof asset.height === 'number') {
+          Object.assign(out, { height: String(asset.height), width: String(asset.width) });
+        }
+      }
       return extras(v, out);
     }
     case 'Any':

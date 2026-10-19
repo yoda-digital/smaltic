@@ -40,3 +40,19 @@ export const repositoryNotFound = (reply: FastifyReply) =>
 
 export const writeRepositoryNotFound = (reply: FastifyReply) =>
   apiError(reply, 403, { message: "Repository not found" });
+
+/**
+ * `onSend` hook: every 429 carries `Retry-After` (C§0.7). The official client reads it with
+ * `Number(...)`, so an absent header would make it retry immediately.
+ */
+export async function ensureRetryAfter(_req: unknown, reply: FastifyReply, payload: unknown): Promise<unknown> {
+  if (reply.statusCode === 429 && !reply.hasHeader("retry-after")) reply.header("retry-after", "1");
+  return payload;
+}
+
+/** Asset API errors: the client reads `body.error` (C§5.3). */
+export const assetApiError = (reply: FastifyReply, status: number, error: string) => apiError(reply, status, { error });
+
+/** Migration API errors: the client reads `body.message`; validation failures add `errors` (C§5.2). */
+export const migrationApiError = (reply: FastifyReply, status: number, message: string, errors?: unknown[]) =>
+  apiError(reply, status, errors ? { message, errors } : { message });

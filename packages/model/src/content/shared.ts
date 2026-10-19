@@ -10,10 +10,33 @@ export type FieldError = { property: string; value: unknown; error: string };
 /** oEmbed response (arbitrary provider keys). */
 export type Oembed = Record<string, unknown>;
 
+/** A media-library asset as normalization needs it. `url` is absolute and has no query string. */
+export interface AssetInfo {
+  id: string;
+  url: string;
+  filename: string;
+  kind: 'image' | 'audio' | 'video' | 'document';
+  size: number;
+  width?: number | null;
+  height?: number | null;
+}
+
 export interface NormalizeCtx {
   /** Resolves oEmbed for a URL; `null` (or a promise of `null`) keeps the input `{embed_url, ...}`. */
   resolveEmbed(url: string): Promise<Oembed | null> | null;
-  assetExists(id: string): boolean;
+  /**
+   * Looks up an asset by id; `null` = unknown asset. When present, images and links to media that
+   * arrive with only an id are filled from the asset so stored content is self-contained.
+   */
+  getAsset?(id: string): AssetInfo | null | Promise<AssetInfo | null>;
+  /** Existence-only check, used when `getAsset` is absent. Neither present = every id accepted. */
+  assetExists?(id: string): boolean;
+}
+
+/** Resolves an asset id against the ctx: `false` = unknown, `true` = exists without details, else the asset. */
+export async function findAsset(ctx: NormalizeCtx, id: string): Promise<AssetInfo | boolean> {
+  if (ctx.getAsset) return (await ctx.getAsset(id)) ?? false;
+  return ctx.assetExists ? ctx.assetExists(id) : true;
 }
 
 /** A linked document as the Content API embeds it (C§2.3, R1§4.7). */

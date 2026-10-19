@@ -52,6 +52,24 @@ export class ReleaseService {
     return { id, ref };
   }
 
+  async findOpenMigrationRelease(repoId: string): Promise<Release | null> {
+    const [r] = await this.sql`select id, ref from releases where repo_id = ${repoId} and migration and status = 'open'`;
+    return r ? { id: r.id, ref: r.ref } : null;
+  }
+
+  /** The single open migration release of the repo (unique index), created on demand; race-safe. */
+  async openMigrationRelease(repoId: string, actor: Actor): Promise<Release> {
+    for (;;) {
+      const found = await this.findOpenMigrationRelease(repoId);
+      if (found) return found;
+      try {
+        return await this.create(repoId, actor, "Migration release", { migration: true });
+      } catch (e) {
+        if ((e as { code?: string }).code !== "23505") throw e; // lost the race: read the winner's
+      }
+    }
+  }
+
   /** Stages the document's current draft version (re-adding replaces the snapshot). */
   async add(repoId: string, actor: Actor, releaseId: string, docId: string): Promise<void> {
     await tx(this.sql, async (t) => {

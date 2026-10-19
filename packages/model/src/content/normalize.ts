@@ -73,10 +73,10 @@ class Normalizer implements NormEnv {
       case 'StructuredText':
         return this.richText(cfg, v, path);
       case 'Image':
-        return normalizeImage(this, cfg, v, path, false);
+        return await normalizeImage(this, cfg, v, path, false);
       case 'Link':
-        if (cfg.repeat) return normalizeRepeatLink(this, cfg, v, path);
-        return normalizeLink(this, cfg, v, path, 'filled');
+        if (cfg.repeat) return await normalizeRepeatLink(this, cfg, v, path);
+        return await normalizeLink(this, cfg, v, path, 'filled');
       case 'Embed':
         return this.embed(v, path);
       case 'GeoPoint':
@@ -169,12 +169,12 @@ class Normalizer implements NormEnv {
         this.err(`${p}.text`, b.text, 'The text must be a string');
         return null;
       }
-      const out: Record<string, unknown> = { type: b.type, text: b.text, spans: this.spans(b.spans, `${p}.spans`) };
+      const out: Record<string, unknown> = { type: b.type, text: b.text, spans: await this.spans(b.spans, `${p}.spans`) };
       if (isStr(b.direction)) out.direction = b.direction;
       return out;
     }
     if (b.type === 'image') {
-      const img = normalizeImage(this, {}, b, p, true);
+      const img = await normalizeImage(this, {}, b, p, true);
       if (!isStr(img.id) && !isStr(img.url)) {
         this.err(p, b, 'The image block must reference an image');
         return null;
@@ -183,7 +183,7 @@ class Normalizer implements NormEnv {
       const out: Record<string, unknown> = { type: 'image', url, alt, copyright, dimensions, id, edit };
       for (const k of Object.keys(out)) if (out[k] === undefined) delete out[k];
       if (isObj(b.linkTo)) {
-        const l = normalizeLink(this, {}, b.linkTo, `${p}.linkTo`, 'never');
+        const l = await normalizeLink(this, {}, b.linkTo, `${p}.linkTo`, 'never');
         if (l.link_type !== 'Any') out.linkTo = l;
       }
       return out;
@@ -197,7 +197,7 @@ class Normalizer implements NormEnv {
     return { type: 'embed', oembed };
   }
 
-  private spans(v: unknown, path: string): unknown[] {
+  private async spans(v: unknown, path: string): Promise<unknown[]> {
     if (!Array.isArray(v)) return [];
     const out: unknown[] = [];
     for (const [i, s] of v.entries()) {
@@ -213,7 +213,7 @@ class Normalizer implements NormEnv {
       }
       const span: Record<string, unknown> = { start: s.start, end: s.end, type: s.type };
       if (s.type === 'hyperlink') {
-        const data = normalizeLink(this, {}, s.data, `${p}.data`, 'never');
+        const data = await normalizeLink(this, {}, s.data, `${p}.data`, 'never');
         if (data.link_type === 'Any') continue; // a hyperlink to nothing is dropped
         span.data = data;
       } else if (s.type === 'label') {

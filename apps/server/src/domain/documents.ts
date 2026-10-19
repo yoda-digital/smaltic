@@ -4,6 +4,7 @@ import {
   normalizeDocumentData,
   validateUid,
   type CustomType,
+  type AssetInfo,
   type FieldError,
   type NormalizeCtx,
   type SharedSlice,
@@ -77,11 +78,25 @@ export interface DocumentVersion {
   isLive: boolean;
 }
 
+/** Absolute URL for a server path (an asset's `/assets/...` path); usually `publicUrl` bound to the request. */
+export type UrlFor = (path: string) => string;
+
+/** Asset lookup scoped to a repository (AssetService.lookup when wired by buildApp). */
+export type AssetLookup = (repoId: string, id: string, urlFor?: UrlFor) => Promise<AssetInfo | null>;
+
 export interface DocumentServiceOpts {
   events?: DomainEvents;
   models?: ModelService;
   /** oEmbed / asset hooks for normalization. Default: no oEmbed resolution, every asset id accepted. */
   normalizeCtx?: NormalizeCtx;
+  /** Real asset lookup; overrides `normalizeCtx` asset hooks so images and media links are validated and filled. */
+  assets?: AssetLookup;
+}
+
+/** Per-call options of writes. */
+export interface WriteOpts {
+  /** How asset URLs are made absolute while filling id-only media (defaults to the lookup's own). */
+  urlFor?: UrlFor;
 }
 
 /** Text search configuration; the one place to change it (Task 9 may switch to an unaccent config). */
@@ -106,17 +121,19 @@ export class DocumentService {
   readonly events: DomainEvents;
   private models: ModelService;
   private normalizeCtx: NormalizeCtx;
+  private assets?: AssetLookup;
   private releases: ReleaseService;
 
   constructor(private sql: Sql, opts: DocumentServiceOpts = {}) {
     this.events = opts.events ?? new DomainEvents();
     this.models = opts.models ?? new ModelService(sql);
     this.normalizeCtx = opts.normalizeCtx ?? { resolveEmbed: () => null, assetExists: () => true };
+    this.assets = opts.assets;
     this.releases = new ReleaseService(sql, this.events);
   }
 
-  async create(repoId: string, actor: Actor, input: CreateDocumentInput): Promise<{ id: string; versionId: string }> {
-    const prepared = await this.prepare(repoId, input.type, input.lang, input);
+  async create(repoId: string, actor: Actor, input: CreateDocumentInput, opts: WriteOpts = {}): Promise<{ id: string; versionId: string }> {
+    const prepared = await this.prepare(repoId, input.type, input.lang, input, opts);
     const id = newId();
     const versionId = await tx(this.sql, async (t) => {
       let groupId = id;
@@ -140,7 +157,7 @@ export class DocumentService {
   }
 
   /** Always inserts a new version and moves the draft pointer to it. Returns the version id. */
-  async updateDraft(repoId: string, actor: Actor, id: string, input: UpdateDraftInput): Promise<string> {
+  async updateDraft(repoId: string, actor: Actor, id: string, input: UpdateDraftInput, opts: WriteOpts = {}): Promise<string> {
     // Carried-over uid/tags/title come from the current draft. Optimistic attempts read and normalize outside
     // the write tx (normalization may hit the network) and re-check under the row lock that the draft is still
     // the one read, retrying if not. The last attempt reads under the row lock, so it cannot lose an update
@@ -151,11 +168,11 @@ export class DocumentService {
       versionId = pessimistic
         ? await tx(this.sql, async (t) => {
             await lockDocs(t, repoId, [id]);
-            const { prepared } = await this.prepareDraft(t, repoId, id, input);
+            const { prepared } = await this.prepareDraft(t, repoId, id, input, opts);
             return this.writeDraft(t, repoId, actor, id, prepared);
           })
         : await (async () => {
-            const { seenDraft, prepared } = await this.prepareDraft(this.sql, repoId, id, input);
+            const { seenDraft, prepared } = await this.prepareDraft(this.sql, repoId, id, input, opts);
             return tx(this.sql, async (t) => {
               const [locked] = await lockDocs(t, repoId, [id]);
               if (String(locked!.draft_version_id) !== seenDraft) return null;
@@ -167,7 +184,7 @@ export class DocumentService {
     return versionId;
   }
 
-  private async prepareDraft(q: Sql, repoId: string, id: string, input: UpdateDraftInput) {
+  private async prepareDraft(q: Sql, repoId: string, id: string, input: UpdateDraftInput, opts: WriteOpts) {
     const [doc] = await q`
       select d.type, d.lang, d.draft_version_id, v.uid, v.tags, v.title from documents d
       left join document_versions v on v.id = d.draft_version_id
@@ -178,7 +195,7 @@ export class DocumentService {
       tags: input.tags ?? doc.tags ?? [],
       title: input.title === undefined ? doc.title : input.title,
       data: input.data,
-    });
+    }, opts);
     return { seenDraft: String(doc.draft_version_id), prepared };
   }
 
@@ -285,12 +302,21 @@ export class DocumentService {
   deleteRelease(repoId: string, actor: Actor, releaseId: string): Promise<void> {
     return this.releases.delete(repoId, actor, releaseId);
   }
+  /** The repository's single open migration release, created on demand. */
+  migrationRelease(repoId: string, actor: Actor): Promise<Release> {
+    return this.releases.openMigrationRelease(repoId, actor);
+  }
+  /** The open migration release, if any. */
+  findMigrationRelease(repoId: string): Promise<Release | null> {
+    return this.releases.findOpenMigrationRelease(repoId);
+  }
 
   private async prepare(
     repoId: string,
     type: string,
     lang: string,
     input: { uid?: string | null; tags?: string[]; title?: string | null; data: Record<string, unknown> },
+    opts: WriteOpts = {},
   ): Promise<PreparedVersion> {
     const [locale] = await this.sql`select 1 from locales where repo_id = ${repoId} and code = ${lang}`;
     if (!locale) throw new ValidationFailed([{ property: "lang", value: lang, error: `Unknown locale "${lang}"` }]);
@@ -298,7 +324,11 @@ export class DocumentService {
     const sharedSlices = new Map<string, SharedSlice>(
       (await this.models.listSlices(repoId)).map((s) => [s.id, s as unknown as SharedSlice]),
     );
-    const { data, errors } = await normalizeDocumentData(model, sharedSlices, input.data, this.normalizeCtx);
+    const assets = this.assets;
+    const ctx: NormalizeCtx = assets
+      ? { resolveEmbed: this.normalizeCtx.resolveEmbed, getAsset: (assetId) => assets(repoId, assetId, opts.urlFor) }
+      : this.normalizeCtx;
+    const { data, errors } = await normalizeDocumentData(model, sharedSlices, input.data, ctx);
     const uid = input.uid ?? null;
     if (uid !== null) {
       const e = validateUid(uid);
