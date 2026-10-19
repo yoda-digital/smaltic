@@ -1,0 +1,15 @@
+## ROUND 4 — final validation of position v4
+Product: open-source, self-hosted, Prismic-API-compatible headless CMS / visual page builder (TypeScript). Editors compose pages from reusable "slices". International developer audience; founder in Moldova (Romanian-speaking).
+
+### What happened in round 3
+Your generated coinages were screened. codex's (beldov, tavnel, dorvek, pemvik, tevrok, nemduk) are arbitrary and hard to remember; vibe's (quoba, ryza, nyra, cyra, trozy, krozon) have ambiguous spellings and most namespaces are used. I generated from the real vocabulary of "composing a whole from pieces of glass" instead.
+
+### Position v4: SMALTIC
+- Derivation: "smalt" (cobalt-blue glass; EN/DE), "smalti"/"smalto" (IT: the hand-cut glass tesserae of mosaics), RO "smalț" (enamel), RU "смальта" (mosaic glass). SMALTIC = "made of mosaic-glass pieces": slices composed into one page, light through glass. Pronounced /ˈsmɔːl.tɪk/ or /ˈsmæl.tɪk/, SMAL-tic, rhymes with "Baltic" (mnemonic; same -tic spelling), 2 syllables, 7 letters.
+- Verified today: npm `smaltic`, `create-smaltic` and org scope `@smaltic` free; PyPI, crates.io, Docker Hub user free; GitHub user/org free (2 tiny repos contain the string); domains .com .dev .io .app .org .net .ai .co .sh ALL unregistered (DNS/RDAP); web search finds no product/company named Smaltic — only smalt/smalti/smaltite (glass pigment, mosaic glass, mineral).
+- Family: `npx create-smaltic`, `smaltic dev`, `@smaltic/client`, `SMALTIC_API_URL`, `docker run smaltic/smaltic`, Smaltic Cloud, Smaltic Studio, community "Smaltic".
+- Risks I see: (a) shares the "-ic" ending and glass/optics lineage with PRISMIC — could that be argued as confusingly similar or as riding on Prismic's mark, given the product is marketed as "Prismic-compatible"? (b) Dutch/Scandinavian "smal/smalt" = narrow; (c) may be heard as "small tick"; (d) obscure root word — most devs won't know "smalt".
+
+### Your task
+ACCEPT, MAINTAIN an objection (verifiable reasoning only, no invented registration numbers or facts), or ESCALATE with a concrete better candidate. Be specific on (a) trademark similarity PRISMIC vs SMALTIC (visual, phonetic, conceptual — and whether the compatibility marketing changes the analysis), and on connotations in EN, RO, RU, ES, FR, DE, IT, PT, NL, SV, ZH, JA.
+Respond with valid JSON: {"verdict":"agree|partial|disagree","critique":"...","evidence":"...","alternative":"...","confidence":"high|medium|low","objection_strength":"strong|moderate|minor","assumptions_challenged":[...],"your_perspective":"..."}

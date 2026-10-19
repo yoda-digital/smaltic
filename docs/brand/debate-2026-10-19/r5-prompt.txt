@@ -1,0 +1,18 @@
+## ROUND 5 (final) — rank the verified shortlist
+Product: open-source, self-hosted headless CMS / visual page builder (TypeScript) that is API-compatible with Prismic. Editors compose pages from reusable "slices". International developers; founder in Moldova (Romanian-speaking).
+
+### Round 4 outcome
+- codex ACCEPTED SMALTIC (minor spelling objection). agy PARTIAL (smalltic/smaltick mishearing; RO "smalț" = tooth enamel/enamelled pots, ES/PT "esmalte" = nail polish; passing-off risk when combined with "Prismic-compatible" marketing). vibe DISAGREED (shared -IC ending + glass/optics concept + compatibility marketing => affiliation risk with PRISMIC).
+- I ACCEPT the affiliation/passing-off concern as material: a name that echoes Prismic (glass/optics field + "-ic") undermines the goal of a unique, independent brand. Rule added: no glass/optics/light metaphor and no "-ic" ending.
+- REJECTED alternatives on verified data: TESSERA (npm taken, ~10k GitHub repos, all TLDs used), TESSELIC (tess- stem crowded; .com/.io used).
+
+### Verified shortlist (npm unscoped name free and GitHub user/org free for all; web search finds no product/company with the exact name)
+1. QUILTRY — /ˈkwɪl.tri/ QUILT-ree, 2 syll, 7 letters. Quilt = whole made by sewing pieces (patches) together = slices composed into pages; "-ry" as in poetry/artistry. No glass/optics. Domains: .dev .io free, .com used. Possible neighbors: Quill (quill.js rich-text editor), Quilt Data (data versioning).
+2. WEFTWORK — /ˈwɛft.wɜːrk/ WEFT-work, 2 syll, 8 letters. Weaving: weft threads woven through the warp = content woven through a structure. Domains: .dev free; .com and .io used.
+3. INLAIO — /ɪnˈleɪ.oʊ/ in-LAY-oh, 3 syll, 6 letters. From inlay/intarsia (pieces set into a surface to make a picture). Domains: .com .dev .io all free. Spelling-from-hearing risk (inlayo?).
+4. SMALTIO — /ˈsmɑːl.ti.oʊ/ SMAL-tee-oh, 3 syll, 7 letters. Smalti = mosaic tesserae (still glass, but no -ic). Domains: .com .dev .io all free. Carries the enamel connotations agy raised.
+5. SMALTIC — as in round 4 (all namespaces free; affiliation concern).
+
+### Your task
+Give your final ranking of these 5 (best first) with one-line reasons, and a final verdict on the top pick: ACCEPT, or MAINTAIN an objection with verifiable reasoning only. Address for the top pick: spelling-from-hearing, connotations (EN RO RU ES FR DE IT PT NL SV ZH JA), trademark distinctiveness in classes 9/42 including proximity to existing software brands, and brand-family stretch.
+Respond with valid JSON: {"verdict":"agree|partial|disagree","critique":"...","evidence":"...","alternative":"<ranking 1-5 with reasons>","confidence":"high|medium|low","objection_strength":"strong|moderate|minor","assumptions_challenged":[...],"your_perspective":"..."}

@@ -1,0 +1,16 @@
+## ROUND 1 CHALLENGE
+### Context
+Naming a new open-source, self-hosted headless CMS / visual page builder written in TypeScript. It is wire-compatible with Prismic's APIs (official @prismicio SDKs work against it). Editors compose pages from reusable "slices"; developers query a ref-versioned Content API. The previous working name "Refract" is unusable (a "refract-cms" headless CMS already exists; npm "refract" taken). Founder is in Moldova (Romanian-speaking); audience is international developers.
+Screening done so far (web search + registries reachable without login, NOT a formal trademark search): for each finalist the unscoped npm name is free, the GitHub user/org is free, .dev/.io/.org look unregistered, and no software product with that exact name was found.
+- VITRALIA: from vitraliu (RO) / vitral (ES/PT) / vitrail (FR) = stained glass. .com registered since 2011 with no site; .app in use; a Spanish window-installation firm "Vitralia Glass SL" exists. Nearby marks: VITRA (furniture), VITRALOGY (facility-compliance app), Vitrage (OpenStack project).
+- DICHROA: from dichroic glass (splits light; nod to "prism"); also plant genus Dichroa febrifuga. .com registered Jan 2025, no site. Pronunciation ambiguous.
+- LUMISLICE: descriptive compound lumi + slice; .com parked since 2025.
+Rejected earlier: Facettio (German "Facetten-" medical association), Tessellio (existing SaaS), Pagelume (existing AI product), Opalis (Microsoft), Fenestra (several software products), Glazier/Rondel/Kaleido (taken).
+### Position to Critique
+Position: VITRALIA is the best name; fallback DICHROA.
+Reasoning: (1) exact metaphor: stained glass = pieces (slices) composed into one image that light (content) passes through; (2) pronounceable across EN/RO/IT/ES/RU, 4 syllables vi-TRA-li-a; (3) clean on npm/GitHub/.dev/.io/.org, no software product or trademark found; (4) not derivative of "Prismic" while keeping the glass/light lineage.
+Confidence: MEDIUM. Weaknesses: .com taken (2011), .app used; phonetic proximity to VITRA/VITRALOGY; 8 letters/4 syllables is long for a CLI.
+### Your Task
+Find flaws: edge cases, risks, questionable assumptions. Recommend alternatives — if you propose a new name, give 2-3 concrete candidates with reasoning; they will be mechanically screened afterwards. Do not invent registration numbers or facts you cannot verify; mark anything unverified as such.
+Respond with valid JSON: {"verdict":"agree|partial|disagree","critique":"...","evidence":"...","alternative":"...","confidence":"high|medium|low","objection_strength":"strong|moderate|minor","assumptions_challenged":[...],"your_perspective":"..."}
+If you agree too easily you are not helping. If you truly agree, explain why the position is solid.

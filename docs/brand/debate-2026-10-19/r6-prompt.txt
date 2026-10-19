@@ -1,0 +1,19 @@
+## POST-DEBATE VALIDATION (round 6) — new candidate after the shortlist collapsed
+Product: open-source, self-hosted headless CMS / visual page builder (TypeScript), API-compatible with Prismic. Editors compose pages from reusable "slices". International developers; founder in Moldova.
+
+### Why the round-5 shortlist collapsed (verified)
+- QUILTRY: exact-name iOS app "Quiltry: Quilting Calculator" (June 2026) confirmed via the iTunes lookup API — codex was right.
+- INLAIO: InlayAI is developer software (@inlayai/sdk, CLI) plus the old self-hosted "Inlay CMS" — phonetic neighbour.
+- WEFTWORK: Weftworks (UK SaaS venture studio), WeftWork YouTube channel.
+- Also eliminated: YOSEGI (Yahoo Japan "Yosegi" storage format; npm scope @yosegi in use), INTARZA (sounds like Romanian "întârzia" = to be late).
+
+### Candidate: COVOR
+- Meaning: Romanian "covor" = carpet/rug (Russian "ковёр" kovyor, same meaning). Moldovan/Romanian wall carpets are woven from repeating motifs into one composition — pages composed from slices. Founder-heritage story: "Traditional wall-carpet craftsmanship in Romania and the Republic of Moldova" is on UNESCO's Representative List of Intangible Cultural Heritage (2016). No glass/optics, no "-ic": no echo of PRISMIC.
+- Form: /koˈvor/ co-VOR, 2 syllables, 5 letters. In English it loosely evokes "cover".
+- Verified: npm `covor`, `create-covor`, scope `@covor` free; PyPI, Docker Hub free; GitHub user `covor` exists but inactive since 2021 (5 repos) — org would be `covorhq`/`covor-cms` (free); domains .dev .app .org .ai .sh .cloud free; .com .io .net .co used. No product/app named exactly Covor found on the web or App Store (an individual iOS developer has the surname Covor). Nearest software name: COVORO (finance/compliance SaaS).
+- Usage: `npx create-covor`, `covor dev`, `@covor/client`, `COVOR_API_URL`, covor.dev, Covor Cloud, Covor Studio.
+- Risks I see: idioms "sweep under the rug" (RO "a băga sub covor"), RU "вызвать на ковёр" (be called on the carpet = reprimanded); first letters COV- (COVID); COVORO proximity; .com/.io taken.
+
+### Your task
+ACCEPT or MAINTAIN an objection with verifiable reasoning only (no invented registration numbers or facts). Cover spelling-from-hearing, connotations (EN RO RU ES FR DE IT PT NL SV ZH JA), trademark distinctiveness in classes 9/42 incl. COVORO, and brand-family stretch.
+Respond with valid JSON: {"verdict":"agree|partial|disagree","critique":"...","evidence":"...","alternative":"...","confidence":"high|medium|low","objection_strength":"strong|moderate|minor","assumptions_challenged":[...],"your_perspective":"..."}

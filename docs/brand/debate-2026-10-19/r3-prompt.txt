@@ -1,0 +1,18 @@
+## ROUND 3 — position v3 and candidate generation
+Product: open-source, self-hosted, Prismic-API-compatible headless CMS / visual page builder (TypeScript). Editors compose pages from reusable "slices"; developers query a ref-versioned Content API. International developer audience; founder in Moldova (Romanian-speaking).
+
+### Accepted so far (position v3)
+- VITRALIA, DICHROA dropped (length, podcast spelling). Entire "vitr-" family dropped: verified crowded with software marks/products (VITRANET TM application 2024 for software, Vitrace, Vitruvi, Vitre, Vitrine, Vitralogy, OpenStack Vitrage, VITRA).
+- FRITWORK dropped: ACCEPT vibe — "frit" = fried in FR (frit), ES/PT (frito), IT (fritto); plus RO "fript" (roasted/burnt); plus "fretwork" mishearing (codex) and "on the fritz" (broken).
+- Rejected by mechanical screening: TESSEL, TESSER, LUCET, LUMORA, SIVRA, VITRIC, SLICOR (sounds like "slicer"), FRACTIC, KNIT (common word; certainly taken), Tessellio, Pagelume, Facettio, Opalis, Fenestra, Glazier, Rondel, Kaleido.
+
+### Hard criteria for the name (derived from rounds 1-2)
+1. 2 syllables (3 max), at most 8 letters, lowercase ASCII, spellable after hearing it once (one obvious spelling).
+2. Not starting with crowded stems: vitr-, lum-, lumi-, tess-, prism-, pris-, spec-, chrom-, opal-, iris-, glas-, pane-, page-, slice-, block-, content-, cms.
+3. No negative or comic meaning in EN, RO, RU (incl. transliteration), ES, FR, DE, IT, PT, and no obvious problem in ZH/JA readings.
+4. Inherently distinctive for software (arbitrary or suggestive, not descriptive), and not phonetically close to known software brands (Sanity, Strapi, Payload, Directus, Storyblok, Contentful, Hygraph, Builder.io, Prismic, Plasmic, Webflow, Framer, Wix, Ghost, Keystone, Tina, Decap, Craft).
+5. Metaphor (nice-to-have): composing a whole from pieces / light through glass / craft. A pure coined word is acceptable if it sounds right.
+
+### Your task
+Propose exactly 6 NEW candidates that meet ALL criteria, each with: pronunciation (IPA or respelling), meaning/derivation, why it passes criterion 3 (connotation check per language), and the CLI/package family (`npx create-<name>`, `@<name>/client`). Prefer coined words with unusual letter combinations (they are more likely to be free). Do NOT claim availability — they will be screened mechanically (npm, GitHub, domains, PyPI, Docker, web/trademark search). Rank your 6 by your confidence.
+Respond with valid JSON: {"verdict":"agree|partial|disagree","critique":"(critique of the criteria themselves, if any)","evidence":"...","alternative":"[{\"name\":\"...\",\"pron\":\"...\",\"derivation\":\"...\",\"connotations\":\"...\",\"family\":\"...\"}, ...]","confidence":"high|medium|low","objection_strength":"strong|moderate|minor","assumptions_challenged":[...],"your_perspective":"..."}

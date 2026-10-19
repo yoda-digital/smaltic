@@ -1,0 +1,6 @@
+{
+  "model": "agy",
+  "status": "timeout",
+  "error": "cli_timeout",
+  "stderr_tail": "error: interrupted"
+}
