@@ -10,7 +10,7 @@ import {
   type SharedSlice,
   type StoredData,
 } from "@smaltic/model";
-import type { Sql } from "../db/index.js";
+import type { Fragment, Sql } from "../db/index.js";
 import { DomainEvents, type PublishedDoc } from "./events.js";
 import { ModelService } from "./models.js";
 import { DocumentNotFound, UidConflict, lockDocs, publishItems, type LiveItem } from "./publishing.js";
@@ -128,9 +128,16 @@ export interface WriteOpts {
   stageInMigrationRelease?: boolean;
 }
 
-/** Text search configuration; the one place to change it (Task 9 may switch to an unaccent config). */
-export const SEARCH_CONFIG = "simple";
-const tsvector = (t: Sql, text: string) => t`to_tsvector(${SEARCH_CONFIG}::regconfig, ${text})`;
+/**
+ * Text search configuration (migration 006: `simple` + `unaccent`); the one place to change it. Both the stored
+ * vectors and the query side (src/query/compile.ts) go through `searchVector` / `searchQuery` below.
+ */
+export const SEARCH_CONFIG = "smaltic_search";
+/** tsvector of a text value or SQL text expression. */
+export const searchVector = (t: Sql, text: string | Fragment) => t`to_tsvector(${SEARCH_CONFIG}::regconfig, ${text}::text)`;
+/** websearch-style tsquery (space-separated terms are ANDed) for user input. */
+export const searchQuery = (t: Sql, text: string) => t`websearch_to_tsquery(${SEARCH_CONFIG}::regconfig, ${text}::text)`;
+const tsvector = searchVector;
 
 interface PreparedVersion {
   uid: string | null;

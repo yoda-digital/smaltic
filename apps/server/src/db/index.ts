@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 
 export type Sql = postgres.Sql;
+/** A composable SQL fragment (a tagged-template query interpolated into another one). */
+export type Fragment = postgres.Fragment;
 
 export function createDb(url: string): Sql {
   return postgres(url, { onnotice: () => {} });
