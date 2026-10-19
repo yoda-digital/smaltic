@@ -179,8 +179,14 @@ describe("resolveRef: preview tokens", () => {
     const [pv, payload, mac] = token.split(".");
     const forged = Buffer.from(JSON.stringify({ r: repoId, o: "drafts", exp: 9999999999 })).toString("base64url");
     await expect(refs.resolveRef(repoId, `${pv}.${forged}.${mac}`)).rejects.toBeInstanceOf(RefNotFoundError);
-    const flipped = mac!.slice(0, -1) + (mac!.endsWith("A") ? "B" : "A");
+    const flipped = mac!.slice(0, -1) + (mac!.endsWith("A") ? "B" : "A"); // may only touch padding bits
     await expect(refs.resolveRef(repoId, `${pv}.${payload}.${flipped}`)).rejects.toBeInstanceOf(RefNotFoundError);
+    const flippedHead = (mac!.startsWith("A") ? "B" : "A") + mac!.slice(1);
+    await expect(refs.resolveRef(repoId, `${pv}.${payload}.${flippedHead}`)).rejects.toBeInstanceOf(RefNotFoundError);
+    // Non-canonical spelling of the same MAC (last char differs only in its padding bits) is rejected too.
+    const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    const alias = mac!.slice(0, -1) + B64[B64.indexOf(mac!.slice(-1)) ^ 1];
+    await expect(refs.resolveRef(repoId, `${pv}.${payload}.${alias}`)).rejects.toBeInstanceOf(RefNotFoundError);
     const otherKey = new RefService(db.sql, { secret: "another-secret", refTtlSeconds: 3600 });
     await expect(otherKey.resolveRef(repoId, token)).rejects.toBeInstanceOf(RefNotFoundError);
     await expect(refs.resolveRef(repoId, "pv.garbage")).rejects.toBeInstanceOf(RefNotFoundError);

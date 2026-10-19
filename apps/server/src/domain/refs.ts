@@ -166,8 +166,10 @@ export class RefService {
   private verifyPreviewToken(token: string): PreviewPayload | null {
     const m = /^(pv\.[A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/.exec(token);
     if (!m) return null;
-    const expected = Buffer.from(this.mac(m[1]!), "base64url");
-    const given = Buffer.from(m[2]!, "base64url");
+    // Compare the canonical base64url text, not decoded bytes: decoding ignores the last char's padding
+    // bits, which would accept several spellings of one MAC.
+    const expected = Buffer.from(this.mac(m[1]!));
+    const given = Buffer.from(m[2]!);
     if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
     try {
       const p = JSON.parse(Buffer.from(m[1]!.slice(PREVIEW_PREFIX.length), "base64url").toString("utf8"));
