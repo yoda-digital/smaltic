@@ -249,7 +249,7 @@ describe("resolveRef: toolbar JSON cookie", () => {
 });
 
 describe("config: SMALTIC_SECRET (R17)", () => {
-  const prod = (secret?: string) => ({ NODE_ENV: "production", ...(secret !== undefined ? { SMALTIC_SECRET: secret } : {}) });
+  const prod = (secret?: string) => ({ NODE_ENV: "production", SMALTIC_PUBLIC_URL: "https://cms.example.com", ...(secret !== undefined ? { SMALTIC_SECRET: secret } : {}) });
 
   it("production + missing or empty secret throws", () => {
     expect(() => loadConfig(prod())).toThrow(/SMALTIC_SECRET must be set in production/);
@@ -292,9 +292,10 @@ describe("config: SMALTIC_SECRET (R17)", () => {
 
 describe("config", () => {
   it("reads SMALTIC_REF_TTL_SECONDS with a 3600 default", () => {
-    expect(loadConfig({}).refTtlSeconds).toBe(3600);
-    expect(loadConfig({ SMALTIC_REF_TTL_SECONDS: "120" }).refTtlSeconds).toBe(120);
-    expect(loadConfig({ SMALTIC_REF_TTL_SECONDS: "junk" }).refTtlSeconds).toBe(3600);
+    const S = { SMALTIC_SECRET: "s".repeat(32) }; // avoid the dev-default secret warning
+    expect(loadConfig(S).refTtlSeconds).toBe(3600);
+    expect(loadConfig({ ...S, SMALTIC_REF_TTL_SECONDS: "120" }).refTtlSeconds).toBe(120);
+    expect(loadConfig({ ...S, SMALTIC_REF_TTL_SECONDS: "junk" }).refTtlSeconds).toBe(3600);
   });
 });
 

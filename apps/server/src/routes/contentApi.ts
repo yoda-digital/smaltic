@@ -45,6 +45,20 @@ const ECHOED = ["fetch", "fetchLinks", "graphQuery", "lang", "after"] as const;
 type Query = Record<string, string | string[] | undefined>;
 
 const one = (v: string | string[] | undefined): string | undefined => (Array.isArray(v) ? v[0] : v);
+
+/**
+ * Index of the first character Postgres cannot store as UTF-8 text (a NUL, or a lone surrogate left by an invalid
+ * UTF-8 escape), or -1. Such input would otherwise reach the database and fail there with a 500 (PG 22021).
+ */
+const BAD_TEXT_RE = /\u0000|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+const badTextIndex = (s: string): number => s.search(BAD_TEXT_RE);
+const isBadText = (s: string | undefined): boolean => s !== undefined && badTextIndex(s) !== -1;
+
+/** Line/column (1-based) of `index` in `text`, as the query parser reports positions. */
+function positionOf(text: string, index: number): { line: number; column: number } {
+  const before = text.slice(0, index).split("\n");
+  return { line: before.length, column: before[before.length - 1]!.length + 1 };
+}
 const many = (v: string | string[] | undefined): string[] => (v === undefined ? [] : Array.isArray(v) ? v : [v]);
 
 function intParam(raw: string | undefined, dflt: number): number {
@@ -246,6 +260,7 @@ export async function contentApi(app: FastifyInstance): Promise<void> {
       // Precedence (R1§4.10): missing ref -> bad/expired ref -> token -> query parse.
       const ref = one(query.ref)?.trim();
       if (!ref) return missingRef(reply);
+      if (isBadText(ref)) return refNotFound(reply, (await refs.currentMaster(repo.id)).ref);
       let scope: RefScope;
       try {
         scope = await refs.resolveRef(repo.id, ref, { host: new URL(requestOrigin(req)).host });
@@ -264,6 +279,18 @@ export async function contentApi(app: FastifyInstance): Promise<void> {
       const qs = many(query.q);
       const orderings = one(query.orderings);
       const after = one(query.after);
+      for (const [name, value] of [["lang", one(query.lang)], ["after", after]] as const) {
+        if (isBadText(value)) {
+          return apiError(reply, 400, { type: "api_validation_error", message: `Invalid characters in parameter '${name}'` });
+        }
+      }
+      for (const q of qs) {
+        const at = badTextIndex(q);
+        if (at !== -1) {
+          const { line, column } = positionOf(q, at);
+          return parsingError(reply, `invalid character (NUL or invalid UTF-8) on line:${line} col:${column} in query`, { line, column, id: 0, location: "query" });
+        }
+      }
 
       try {
         const routesRaw = one(query.routes);

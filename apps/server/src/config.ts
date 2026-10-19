@@ -9,6 +9,8 @@ export interface Config {
   refTtlSeconds: number;
   /** Content API requests per second per repository (SMALTIC_RATE_LIMIT); undefined = no limit. */
   rateLimit?: number;
+  /** Pino log level (SMALTIC_LOG_LEVEL, default "info"; "silent" disables logging). */
+  logLevel: string;
 }
 
 export const DEV_SECRET = "dev-secret-change-me";
@@ -34,16 +36,43 @@ function resolveSecret(env: NodeJS.ProcessEnv): string {
   return raw;
 }
 
+/** SMALTIC_PUBLIC_URL must be an absolute http(s) URL: it pins the scheme, host and port of every emitted URL. */
+function resolvePublicUrl(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    throw new Error(`SMALTIC_PUBLIC_URL is not a valid URL: ${JSON.stringify(raw)}`);
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") {
+    throw new Error(`SMALTIC_PUBLIC_URL must be an http or https URL, got ${JSON.stringify(raw)}`);
+  }
+  return raw;
+}
+
+let warnedNoOrigin = false;
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+  const secret = resolveSecret(env);
+  const publicUrl = resolvePublicUrl(env.SMALTIC_PUBLIC_URL);
+  const baseDomain = env.SMALTIC_BASE_DOMAIN || undefined;
+  if (env.NODE_ENV === "production" && !publicUrl && !baseDomain && !warnedNoOrigin) {
+    warnedNoOrigin = true;
+    console.warn(
+      "[smaltic] Neither SMALTIC_PUBLIC_URL nor SMALTIC_BASE_DOMAIN is set: emitted URLs follow the client's Host and X-Forwarded-* headers. Set SMALTIC_PUBLIC_URL in production.",
+    );
+  }
   return {
     databaseUrl: env.DATABASE_URL ?? "postgres://prismic:prismic@localhost:5433/prismic",
-    publicUrl: env.SMALTIC_PUBLIC_URL || undefined,
-    baseDomain: env.SMALTIC_BASE_DOMAIN || undefined,
-    secret: resolveSecret(env),
+    publicUrl,
+    baseDomain,
+    secret,
     dataDir: env.SMALTIC_DATA_DIR ?? "./data",
     trustProxy: (env.SMALTIC_TRUST_PROXY ?? "true") !== "false",
     refTtlSeconds: nonNegativeInt(env.SMALTIC_REF_TTL_SECONDS, 3600),
     rateLimit: nonNegativeInt(env.SMALTIC_RATE_LIMIT, 0) || undefined,
+    logLevel: env.SMALTIC_LOG_LEVEL || "info",
   };
 }
 

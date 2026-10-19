@@ -52,21 +52,51 @@ export function resolveRepoName(req: FastifyRequest): string | undefined {
 
 const HOST_RE = /^[a-z0-9.-]+(:\d{1,5})?$/i;
 
-function hostAllowed(host: string, cfg: Config): boolean {
-  if (!HOST_RE.test(host)) return false;
-  const bare = host.split(":")[0]!.toLowerCase();
-  const allowed: string[] = [];
-  let base: string | undefined;
-  if (cfg.publicUrl) {
-    try {
-      allowed.push(new URL(cfg.publicUrl).hostname.toLowerCase());
-    } catch {
-      /* ignore bad publicUrl */
-    }
+const defaultPort = (proto: string): string => (proto === "https" ? "443" : "80");
+
+interface Pinned {
+  proto: "http" | "https";
+  hostname: string;
+  /** Effective port (the scheme's default when the URL omits it). */
+  port: string;
+  origin: string;
+}
+
+/** SMALTIC_PUBLIC_URL as scheme/host/port; loadConfig rejects an invalid one, so a parse failure here means "unset". */
+function pinnedOrigin(cfg: Config): Pinned | undefined {
+  if (!cfg.publicUrl) return undefined;
+  try {
+    const u = new URL(cfg.publicUrl);
+    const proto = u.protocol.slice(0, -1);
+    if (proto !== "http" && proto !== "https") return undefined;
+    return { proto, hostname: u.hostname.toLowerCase(), port: u.port || defaultPort(proto), origin: u.origin };
+  } catch {
+    return undefined;
   }
-  if (cfg.baseDomain) base = cfg.baseDomain.toLowerCase();
-  if (allowed.length === 0 && !base) return true; // dev: nothing configured
-  return allowed.includes(bare) || (base !== undefined && (bare === base || bare.endsWith(`.${base}`)));
+}
+
+/**
+ * Whether `host` (from Host or X-Forwarded-Host) may name the emitted origin. With SMALTIC_PUBLIC_URL set, its host
+ * must match host *and* port (an omitted port means the configured scheme's default), and a forwarded proto must equal
+ * the configured scheme. Subdomains of SMALTIC_BASE_DOMAIN must use the configured scheme (any http(s) when no public
+ * URL is set) and either no port or the public URL's port. `fwdProto` is undefined when the client sent none: the
+ * socket's own scheme is then genuine and is not checked.
+ */
+function originAllowed(host: string, fwdProto: string | undefined, cfg: Config): boolean {
+  if (!HOST_RE.test(host)) return false;
+  const [rawBare, port = ""] = host.split(":") as [string, string?];
+  const bare = rawBare.toLowerCase();
+  const pin = pinnedOrigin(cfg);
+  const base = cfg.baseDomain?.toLowerCase();
+  if (!pin && !base) return true; // dev: nothing configured
+  const protoOk = fwdProto === undefined || (pin ? fwdProto === pin.proto : fwdProto === "http" || fwdProto === "https");
+  if (pin && bare === pin.hostname) {
+    return protoOk && (port || defaultPort(pin.proto)) === pin.port;
+  }
+  if (base !== undefined && (bare === base || bare.endsWith(`.${base}`))) {
+    return protoOk && (port === "" || (pin !== undefined && port === pin.port));
+  }
+  return false;
 }
 
 /** Request origin (`scheme://host[:port]`) from validated proxy/Host headers, falling back to SMALTIC_PUBLIC_URL. */
@@ -74,15 +104,7 @@ export function requestOrigin(req: FastifyRequest): string {
   const cfg = req.server.config;
   const sockProto = (req.raw.socket as { encrypted?: boolean }).encrypted ? "https" : "http";
   const hostHeader = req.headers.host;
-
-  const configured = (() => {
-    if (!cfg.publicUrl) return undefined;
-    try {
-      return new URL(cfg.publicUrl).origin;
-    } catch {
-      return undefined;
-    }
-  })();
+  const configured = pinnedOrigin(cfg)?.origin;
 
   let origin: string | undefined;
   const fwdHost = cfg.trustProxy ? firstHeader(req.headers["x-forwarded-host"]) : undefined;
@@ -90,8 +112,8 @@ export function requestOrigin(req: FastifyRequest): string {
   if (fwdHost !== undefined || fwdProto !== undefined) {
     const host = fwdHost ?? hostHeader;
     const protoOk = fwdProto === undefined || fwdProto === "http" || fwdProto === "https";
-    if (host && protoOk && hostAllowed(host, cfg)) origin = `${fwdProto ?? sockProto}://${host}`;
-  } else if (hostHeader && hostAllowed(hostHeader, cfg)) {
+    if (host && protoOk && originAllowed(host, fwdProto, cfg)) origin = `${fwdProto ?? sockProto}://${host}`;
+  } else if (hostHeader && originAllowed(hostHeader, undefined, cfg)) {
     origin = `${sockProto}://${hostHeader}`;
   }
   if (!origin) {

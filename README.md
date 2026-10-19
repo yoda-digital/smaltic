@@ -105,12 +105,13 @@ await writeClient.publishMigrationRelease(); // makes the imported documents liv
 |---|---|---|
 | `DATABASE_URL` | `postgres://prismic:prismic@localhost:5433/prismic` | Postgres 16 connection string |
 | `SMALTIC_SECRET` | none in production | HMAC key for preview tokens. With `NODE_ENV=production` (as in the Docker image) the server refuses to start unless it has at least 32 characters. Outside production an insecure development default is used, with a warning. |
-| `SMALTIC_PUBLIC_URL` | unset (compose: `http://localhost:8080`) | Public origin. Used for asset URLs stored in content and as the fallback for absolute URLs. When set, only its host is trusted in `Host` / `X-Forwarded-Host`. |
+| `SMALTIC_PUBLIC_URL` | unset (compose: `http://localhost:8080`) | Public origin. Used for asset URLs stored in content and as the fallback for absolute URLs. Must be an absolute http(s) URL (startup fails otherwise). When set, only its host and port are trusted in `Host` / `X-Forwarded-Host`, and `X-Forwarded-Proto` must match its scheme; anything else falls back to this origin. In production, set it (or `SMALTIC_BASE_DOMAIN`). |
 | `SMALTIC_BASE_DOMAIN` | unset | Enables `<repo>.<base domain>` routing |
 | `SMALTIC_DATA_DIR` | `./data` (image: `/data`) | Where uploaded files are stored |
 | `SMALTIC_TRUST_PROXY` | `true` | Honour `X-Forwarded-*` headers |
 | `SMALTIC_REF_TTL_SECONDS` | `3600` | How long a superseded master ref stays queryable |
 | `SMALTIC_RATE_LIMIT` | unset | Content API requests per second per repository; over the limit the server answers 429 with `Retry-After` |
+| `SMALTIC_LOG_LEVEL` | `info` | Server log level (pino: `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent`). 5xx errors are logged with the request id; clients get a generic body. |
 | `PORT`, `HOST` | `8080`, `0.0.0.0` | Listen address |
 
 ## CLI

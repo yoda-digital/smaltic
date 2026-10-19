@@ -51,7 +51,10 @@ async function local(provide: GlobalSetupContext["provide"]): Promise<() => Prom
   const { RefService } = await import("../../apps/server/src/domain/refs.js");
 
   const dataDir = await mkdtemp(join(tmpdir(), "smaltic-compat-"));
-  const srv = await startServer({ config: { dataDir } });
+  // The server runs in this (main) process: silence its request log and use a test secret so the output stays
+  // free of the dev-default secret warning.
+  process.env.SMALTIC_SECRET ??= "compat-test-secret-0123456789abcdef0123";
+  const srv = await startServer({ config: { dataDir, logLevel: "silent" } });
   const closers: Array<() => Promise<unknown>> = [];
   try {
     const repos = new RepositoryService(srv.sql);
