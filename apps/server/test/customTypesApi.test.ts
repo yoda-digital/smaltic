@@ -124,3 +124,46 @@ describe("ModelService.removeType", () => {
     await app.close();
   });
 });
+
+describe("bulk-update atomicity and auth branches", () => {
+  const call = (path: string, headers: Record<string, string>, body?: unknown) =>
+    fetch(`${s.baseUrl}/customtypes-api${path}`, {
+      method: body === undefined ? "GET" : "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  const auth = () => ({ repository: "blog", authorization: `Bearer ${tokenValue}` });
+
+  it("rolls back a bulk-update when a later change fails", async () => {
+    const r = await call("/bulk-update", auth(), {
+      changes: [
+        { type: "CUSTOM_TYPE_INSERT", id: "atomic_a", payload: { ...pageType, id: "atomic_a" } },
+        { type: "CUSTOM_TYPE_UPDATE", id: "missing_x", payload: { ...pageType, id: "missing_x" } },
+      ],
+    });
+    expect(r.status).toBe(400);
+    expect((await call("/customtypes/atomic_a", auth())).status).toBe(404);
+    const rows = await s.sql`select 1 from model_history where repo_id = ${repoId} and id = 'atomic_a'`;
+    expect(rows.length).toBe(0);
+  });
+
+  it("rejects an access (read) token on a write route with 401", async () => {
+    const t = await new RepositoryService(s.sql).createToken(repoId, "access", "ro");
+    const r = await call("/customtypes", { repository: "blog", authorization: `Bearer ${t.token}` });
+    expect(r.status).toBe(401);
+  });
+
+  it("rejects another repository's write token with 401", async () => {
+    const svc = new RepositoryService(s.sql);
+    const other = await svc.create({ name: "other-repo", masterLocale: { code: "en-us", name: "English" } });
+    const t = await svc.createToken((other as any).id ?? (other as any).repo?.id, "write", "o");
+    const r = await call("/customtypes", { repository: "blog", authorization: `Bearer ${t.token}` });
+    expect(r.status).toBe(401);
+  });
+
+  it("unknown repository header gives 403 JSON", async () => {
+    const r = await call("/customtypes", { repository: "nope-repo", authorization: `Bearer ${tokenValue}` });
+    expect(r.status).toBe(403);
+    expect(await r.json()).toEqual({ message: "Repository not found" });
+  });
+});
