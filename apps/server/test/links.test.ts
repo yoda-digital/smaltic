@@ -163,7 +163,7 @@ describe("routes", () => {
     expect(post.data.writer).not.toHaveProperty("data");
   });
 
-  it("resolveUrl: first match wins, uid/lang scoping, 2-level resolvers, missing required keyword", () => {
+  it("resolveUrl: scoped routes first, then array order, uid/lang scoping, 2-level resolvers, missing required keyword", () => {
     const docs: Record<string, RoutableDoc> = {
       root: { id: "root", type: "page", uid: "about-us", lang: "en-us", data: {} },
       mid: { id: "mid", type: "page", uid: "our-team", lang: "en-us", data: { parent: cr("root") } },
@@ -185,6 +185,15 @@ describe("routes", () => {
     expect(resolveUrl(docs.root!, scoped, parent, "en-us")).toBe("/");
     expect(resolveUrl(docs.leaf!, scoped, parent, "en-us")).toBe("/fr/jane-doe");
     expect(resolveUrl(docs.mid!, scoped, parent, "en-us")).toBe("/en-us/our-team");
+    // R15: scoped routes win over generic ones even when listed after them; array order within each group.
+    const genericFirst: Route[] = [
+      { type: "page", path: "/:lang/:uid" },
+      { type: "page", lang: "fr-fr", path: "/fr/:uid" },
+      { type: "page", uid: "jane-doe", path: "/jane" },
+    ];
+    expect(resolveUrl(docs.leaf!, genericFirst, parent, "en-us")).toBe("/fr/jane-doe");
+    expect(resolveUrl(docs.mid!, genericFirst, parent, "en-us")).toBe("/en-us/our-team");
+    expect(resolveUrl({ ...docs.leaf!, lang: "en-us" }, genericFirst, parent, "en-us")).toBe("/jane");
     expect(resolveUrl(docs.root!, [{ type: "page", path: "/:parent/:uid", resolvers: { parent: "parent" } }], parent, "en-us")).toBeNull();
     expect(resolveUrl(docs.root!, [{ type: "blog", path: "/:uid" }], parent, "en-us")).toBeNull();
   });
@@ -246,9 +255,18 @@ describe("linked data selection", () => {
 
   it("a link to a deleted document renders a broken stub, with brokenRoute as url", async () => {
     const post = await renderOne("post-1", { routes });
-    expect(post.data.related).toEqual({ id: ids.gone, type: "broken", link_type: "Document", key: expect.any(String), isBroken: true });
+    expect(post.data.related).toEqual({
+      id: ids.gone, type: "broken_type", tags: [], lang: null, slug: "-", first_publication_date: null, last_publication_date: null,
+      link_type: "Document", key: expect.any(String), isBroken: true,
+    });
+    expect(Object.keys(post.data.related)).toEqual([
+      "id", "type", "tags", "lang", "slug", "first_publication_date", "last_publication_date", "link_type", "key", "isBroken",
+    ]);
     const withRoute = await renderOne("post-1", { routes, brokenRoute: "/404" });
-    expect(withRoute.data.related).toMatchObject({ type: "broken", url: "/404", isBroken: true });
+    expect(withRoute.data.related).toMatchObject({ type: "broken_type", url: "/404", isBroken: true });
+    expect(Object.keys(withRoute.data.related)).toEqual([
+      "id", "type", "tags", "lang", "slug", "first_publication_date", "last_publication_date", "url", "link_type", "key", "isBroken",
+    ]);
   });
 
   it("rejects malformed fetchLinks / graphQuery", async () => {
@@ -266,6 +284,18 @@ describe("graphQuery unit", () => {
     expect(out).toEqual({ title: h1("t") });
     expect(out).not.toBe(data);
     expect(data.extra).toBe(1);
+  });
+});
+
+describe("graphQuery limits", () => {
+  it("rejects nesting deeper than 32 and inputs longer than 2048 chars", () => {
+    const nest = (n: number) => "{ blog ".concat("{ a ".repeat(n - 1), "}".repeat(n - 1), " }");
+    expect(() => parseGraphQuery(nest(32))).not.toThrow();
+    expect(() => parseGraphQuery(nest(33))).toThrow(LinkParamError);
+    expect(() => parseGraphQuery("{".repeat(8000) + "}".repeat(8000))).toThrow(LinkParamError);
+    const long = `{ blog { ${"a ".repeat(1100)}} }`;
+    expect(long.length).toBeGreaterThan(2048);
+    expect(() => parseGraphQuery(long)).toThrow(LinkParamError);
   });
 });
 

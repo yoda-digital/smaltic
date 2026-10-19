@@ -79,18 +79,21 @@ const KEYWORD_RE = /:([A-Za-z_][A-Za-z0-9_]*)(\?)?/g;
 const MAX_RESOLVER_DEPTH = 2;
 
 /**
- * URL of `doc` per R1§6: the first route (in array order) whose `type` matches and whose `uid` / `lang` scopes
- * match, and whose required keywords all have a value, wins. `null` when none matches.
+ * URL of `doc` per R1§6: the first route whose `type` matches, whose `uid` / `lang` scopes match and whose required
+ * keywords all have a value wins; scoped routes are tried before generic ones (R15). `null` when none matches.
  * Keywords: `:uid`, `:lang`, `:lang?` (omitted for `masterLang`), `:<resolver>` / `:<resolver>?` = UID of the
  * document reached through the resolver's field path (max 2 levels). Empty optional segments collapse.
  */
 export function resolveUrl(doc: RoutableDoc, routes: Route[], resolveParent: ResolveParent, masterLang?: string): string | null {
-  for (const r of routes) {
-    if (r.type !== doc.type) continue;
-    if (r.uid !== undefined && r.uid !== doc.uid) continue;
-    if (r.lang !== undefined && r.lang !== doc.lang) continue;
-    const url = renderPath(r, doc, resolveParent, masterLang);
-    if (url !== null) return url;
+  // R15: routes scoped by `uid` and/or `lang` win over generic ones; array order within each group.
+  for (const scoped of [true, false]) {
+    for (const r of routes) {
+      if (r.type !== doc.type || (r.uid !== undefined || r.lang !== undefined) !== scoped) continue;
+      if (r.uid !== undefined && r.uid !== doc.uid) continue;
+      if (r.lang !== undefined && r.lang !== doc.lang) continue;
+      const url = renderPath(r, doc, resolveParent, masterLang);
+      if (url !== null) return url;
+    }
   }
   return null;
 }
@@ -282,7 +285,10 @@ class Page implements PageRenderer {
   }
 
   private broken(id: string): BrokenStub {
-    const out: Record<string, unknown> = { id, type: "broken" };
+    // R14, live shape (api-contracts §2.3); the renderer appends link_type, key, isBroken.
+    const out: Record<string, unknown> = {
+      id, type: "broken_type", tags: [], lang: null, slug: "-", first_publication_date: null, last_publication_date: null,
+    };
     if (this.opts.brokenRoute !== undefined) out.url = this.opts.brokenRoute;
     return { ...out, link_type: "Document", isBroken: true } as BrokenStub;
   }
@@ -298,7 +304,7 @@ class Page implements PageRenderer {
     const out: Record<string, unknown> = {
       id: target.id,
       type: target.type,
-      tags: target.tags,
+      tags: [...target.tags],
       lang: target.lang,
       slug: slugOf(model, target.data),
       first_publication_date: apiDate(target.firstPublicationDate),

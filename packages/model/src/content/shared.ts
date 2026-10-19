@@ -56,10 +56,16 @@ export interface LinkedDocStub {
   [key: string]: unknown;
 }
 
-/** A link to a missing document (C§2.3). */
+/** A link to a missing document (C§2.3, live): `type: "broken_type"`, `slug: "-"`, null lang and dates. */
 export interface BrokenStub {
   id: string;
   type: string;
+  tags?: string[];
+  lang?: string | null;
+  slug?: string | null;
+  first_publication_date?: string | null;
+  last_publication_date?: string | null;
+  url?: string | null;
   link_type: 'Document';
   isBroken: true;
   [key: string]: unknown;

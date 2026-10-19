@@ -23,23 +23,32 @@ export interface Selection {
   firstBlock: Set<string>;
 }
 
+/** Max `{` nesting of a graphQuery (and of any selection tree) and max graphQuery length (the URL limit). */
+export const MAX_SELECTION_DEPTH = 32;
+export const MAX_GRAPHQUERY_LENGTH = 2048;
+
+const tooDeep = (): never => {
+  throw new LinkParamError(`selection nested deeper than ${MAX_SELECTION_DEPTH} levels`);
+};
+
 export const emptySelection = (): Selection => ({ fields: new Map(), spreads: new Set(), on: new Map(), firstBlock: new Set() });
 
 export const isEmptySelection = (s: Selection): boolean => s.fields.size === 0 && s.spreads.size === 0 && s.on.size === 0;
 
 /** Union of two selections (new object; inputs untouched). */
-export function mergeSelections(a: Selection, b: Selection): Selection {
+export function mergeSelections(a: Selection, b: Selection, depth = 0): Selection {
+  if (depth > MAX_SELECTION_DEPTH) tooDeep();
   const out = emptySelection();
   for (const src of [a, b]) {
     for (const [k, v] of src.fields) {
       if (!out.fields.has(k)) out.fields.set(k, v);
       else {
         const prev = out.fields.get(k)!;
-        out.fields.set(k, prev === null || v === null ? null : mergeSelections(prev, v));
+        out.fields.set(k, prev === null || v === null ? null : mergeSelections(prev, v, depth + 1));
       }
     }
     for (const s of src.spreads) out.spreads.add(s);
-    for (const [k, v] of src.on) out.on.set(k, out.on.has(k) ? mergeSelections(out.on.get(k)!, v) : v);
+    for (const [k, v] of src.on) out.on.set(k, out.on.has(k) ? mergeSelections(out.on.get(k)!, v, depth + 1) : v);
   }
   // First-block only if every source selecting the field limits it.
   for (const k of out.fields.keys()) {
@@ -74,6 +83,7 @@ function tokenize(s: string): Tok[] {
  * `{ blog { title author { ...on author { name } } } }` -> fields{blog -> fields{title, author -> on{author -> {name}}}}.
  */
 export function parseGraphQuery(s: string): Selection {
+  if (s.length > MAX_GRAPHQUERY_LENGTH) throw new LinkParamError(`graphQuery longer than ${MAX_GRAPHQUERY_LENGTH} characters`);
   const toks = tokenize(s);
   let i = 0;
   const peek = () => toks[i];
@@ -83,7 +93,8 @@ export function parseGraphQuery(s: string): Selection {
   };
   const expect = (t: Tok["t"]) => (peek()?.t === t ? toks[i++]! : fail(`'${t}'`));
 
-  const block = (): Selection => {
+  const block = (depth: number): Selection => {
+    if (depth > MAX_SELECTION_DEPTH) tooDeep();
     expect("{");
     const sel = emptySelection();
     while (peek() && peek()!.t !== "}") {
@@ -92,13 +103,13 @@ export function parseGraphQuery(s: string): Selection {
         const name = peek()?.t === "id" ? toks[i++]!.v : fail("a type name after '...'");
         if (name === "on" && peek()?.t === "id") {
           const type = toks[i++]!.v;
-          const sub = block();
+          const sub = block(depth + 1);
           sel.on.set(type, sel.on.has(type) ? mergeSelections(sel.on.get(type)!, sub) : sub);
         } else if (name.endsWith("Fields") && name.length > "Fields".length) {
           sel.spreads.add(name.slice(0, -"Fields".length));
         } else fail(`'on <type>' or '<type>Fields' after '...'`);
       } else if (tok.t === "id") {
-        const sub = peek()?.t === "{" ? block() : null;
+        const sub = peek()?.t === "{" ? block(depth + 1) : null;
         const prev = sel.fields.get(tok.v);
         sel.fields.set(tok.v, sel.fields.has(tok.v) ? (prev === null || sub === null ? null : mergeSelections(prev!, sub)) : sub);
       } else {
@@ -110,7 +121,7 @@ export function parseGraphQuery(s: string): Selection {
     return sel;
   };
 
-  const root = block();
+  const root = block(1);
   if (i !== toks.length) fail("end of input");
   return root;
 }
@@ -215,7 +226,8 @@ export function linkTargetSelection(link: Selection, type: string): Selection | 
 const isRichText = (v: unknown[]): boolean => v.length > 0 && v.every((b) => isObj(b) && isStr(b.type) && BLOCK_TYPES.has(b.type));
 
 /** Projects document (or group item) data on a selection, in data key order. Link values are kept as rendered. */
-export function project(data: Record<string, unknown>, sel: Selection, type?: string): Record<string, unknown> {
+export function project(data: Record<string, unknown>, sel: Selection, type?: string, depth = 0): Record<string, unknown> {
+  if (depth > MAX_SELECTION_DEPTH) tooDeep();
   const all = type !== undefined && sel.spreads.has(type);
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(data)) {
@@ -226,19 +238,19 @@ export function project(data: Record<string, unknown>, sel: Selection, type?: st
     const sub = sel.fields.get(k)!;
     if (sub === null) {
       out[k] = sel.firstBlock.has(k) && Array.isArray(v) && isRichText(v) ? v.slice(0, 1) : v;
-    } else out[k] = projectValue(v, sub);
+    } else out[k] = projectValue(v, sub, depth + 1);
   }
   return out;
 }
 
-function projectValue(v: unknown, sel: Selection): unknown {
+function projectValue(v: unknown, sel: Selection, depth: number): unknown {
   if (Array.isArray(v)) {
     const out: unknown[] = [];
     for (const item of v) {
       if (isObj(item) && isStr(item.slice_type)) {
-        const s = projectSlice(item, sel);
+        const s = projectSlice(item, sel, depth + 1);
         if (s) out.push(s);
-      } else out.push(isObj(item) ? project(item, sel) : item);
+      } else out.push(isObj(item) ? project(item, sel, undefined, depth + 1) : item);
     }
     return out;
   }
@@ -246,7 +258,7 @@ function projectValue(v: unknown, sel: Selection): unknown {
   return v;
 }
 
-function projectSlice(slice: Record<string, unknown>, zone: Selection): Record<string, unknown> | null {
+function projectSlice(slice: Record<string, unknown>, zone: Selection, depth: number): Record<string, unknown> | null {
   const type = slice.slice_type as string;
   const branch = zone.on.get(type);
   if (zone.spreads.has(type) || branch?.spreads.has(type)) return slice;
@@ -259,8 +271,8 @@ function projectSlice(slice: Record<string, unknown>, zone: Selection): Record<s
       const sub = branch.fields.get(k);
       if (sub === undefined) out[k] = k === "primary" ? {} : [];
       else if (sub === null) out[k] = v;
-      else if (k === "primary") out[k] = isObj(v) ? project(v, sub) : {};
-      else out[k] = Array.isArray(v) ? v.map((it) => (isObj(it) ? project(it, sub) : it)) : [];
+      else if (k === "primary") out[k] = isObj(v) ? project(v, sub, undefined, depth + 1) : {};
+      else out[k] = Array.isArray(v) ? v.map((it) => (isObj(it) ? project(it, sub, undefined, depth + 1) : it)) : [];
     } else out[k] = v;
   }
   return out;
