@@ -23,6 +23,9 @@ importers:
         specifier: ^3.4.0
         version: 3.4.9
     devDependencies:
+      '@prismicio/custom-types-client':
+        specifier: ^2.1.0
+        version: 2.1.0(@prismicio/client@7.22.3)
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.5
@@ -468,6 +471,16 @@ packages:
   '@pinojs/redact@0.4.0':
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
 
+  '@prismicio/client@7.22.3':
+    resolution: {integrity: sha512-IOaRlqBSbb7HRaf61bkD7dzGdRvE5qNRjmcdMW/W52Qn0C9y8w3jGW+NJzxKKUs8youR6FilGoh6xqC2t8Sonw==}
+    engines: {node: '>=22'}
+
+  '@prismicio/custom-types-client@2.1.0':
+    resolution: {integrity: sha512-LxUTiF8nYy1V+sdCOJ8m1hx2QTlUVpTO1J4RfHriRL596h6ySKRV/ghsHoKP82XA+VhTxSS2DN1hhBHCAdsILw==}
+    engines: {node: '>=14.15.0'}
+    peerDependencies:
+      '@prismicio/client': '>=7'
+
   '@rollup/rollup-android-arm-eabi@4.64.10':
     resolution: {integrity: sha512-oJ9ZfVIZjSjts0ZIYA48+5T0vurE5fQfX/Liad2U52Y6EN99x/OCdjGGuKMDP6jSk2i2lY6jwwA3X0drEc4PBg==}
     cpu: [arm]
@@ -751,6 +764,10 @@ packages:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
+
+  imgix-url-builder@0.0.6:
+    resolution: {integrity: sha512-lFVbvaE9vMck8qz9j+y6o7vsyc1vZhdqzWu+Wp/nlnOCi9zAErc31QMkZKYUGMNLLzxOO4YIBAUPndTPah8HFg==}
+    engines: {node: '>=12.7.0'}
 
   ipaddr.js@2.5.0:
     resolution: {integrity: sha512-aq+t5NAc+cS6rZQQVWC2x98CPqGtKKTMDd4Gaodv0wShnItdKg/51djkGJ1hqH+Oy0ivDftCbSLCQob8zso01w==}
@@ -1223,6 +1240,14 @@ snapshots:
 
   '@pinojs/redact@0.4.0': {}
 
+  '@prismicio/client@7.22.3':
+    dependencies:
+      imgix-url-builder: 0.0.6
+
+  '@prismicio/custom-types-client@2.1.0(@prismicio/client@7.22.3)':
+    dependencies:
+      '@prismicio/client': 7.22.3
+
   '@rollup/rollup-android-arm-eabi@4.64.10':
     optional: true
 
@@ -1502,6 +1527,8 @@ snapshots:
 
   fsevents@2.3.3:
     optional: true
+
+  imgix-url-builder@0.0.6: {}
 
   ipaddr.js@2.5.0: {}
 
