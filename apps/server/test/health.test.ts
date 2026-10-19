@@ -23,6 +23,6 @@ describe("health", () => {
     await migrate(s.sql);
     await migrate(s.sql);
     const rows = await s.sql`select name from _migrations order by name`;
-    expect(rows.map((r) => r.name)).toEqual(["001_init.sql"]);
+    expect(rows.map((r) => r.name)).toEqual(["001_init.sql", "002_tenancy.sql"]);
   });
 });
