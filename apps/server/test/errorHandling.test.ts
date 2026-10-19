@@ -35,7 +35,7 @@ beforeAll(async () => {
       cb();
     },
   });
-  app = await buildApp({ config, sql: db.sql, logger: { level: "error", stream } });
+  app = await buildApp({ config, sql: db.sql, logger: { level: "info", stream } });
   app.get("/__boom", async () => {
     throw new Error("secret internal detail: relation \"x\" does not exist");
   });
@@ -132,5 +132,30 @@ describe("root error handler", () => {
     const b = await get("/__bad");
     expect(b.status).toBe(400);
     expect(b.body).toMatchObject({ statusCode: 400, error: "Bad Request", message: "bad thing" });
+  });
+});
+
+describe("request logging redacts secrets (R22)", () => {
+  it("masks ref, access_token and token query values but keeps the path and other params", async () => {
+    logLines.length = 0;
+    const q = '[[at(document.type, "page")]]';
+    const url = `/r/blog/api/v2/documents/search?ref=pv.secret.sig&ACCESS_TOKEN=rf_access_x&Token=tk_secret_y&q=${encodeURIComponent(q)}&pageSize=2`;
+    await app.inject({
+      method: "GET",
+      url,
+      headers: { authorization: "Token hdr_secret_z", cookie: "io.prismic.preview=cookie_secret_w" },
+    });
+    const text = logLines.map((l) => JSON.stringify(l)).join("\n");
+    expect(text).toMatch(/incoming request/);
+    for (const secret of ["pv.secret.sig", "rf_access_x", "tk_secret_y", "hdr_secret_z", "cookie_secret_w"]) {
+      expect(text).not.toContain(secret);
+    }
+    const reqLine = logLines.find((l) => l.req?.url);
+    expect(reqLine.req.url).toContain("/api/v2/documents/search?");
+    expect(reqLine.req.url).toContain("ref=[redacted]");
+    expect(reqLine.req.url).toContain("ACCESS_TOKEN=[redacted]");
+    expect(reqLine.req.url).toContain(`q=${encodeURIComponent(q)}`);
+    expect(reqLine.req.url).toContain("pageSize=2");
+    expect(reqLine.req.method).toBe("GET");
   });
 });
