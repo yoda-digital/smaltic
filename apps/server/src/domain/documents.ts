@@ -42,6 +42,9 @@ export class AlternateLangConflict extends Error {
 
 export type Actor = string | null;
 
+/** Optimistic attempts before updateDraft falls back to reading under the row lock. */
+const UPDATE_DRAFT_ATTEMPTS = 3;
+
 export interface CreateDocumentInput {
   type: string;
   lang: string;
@@ -138,8 +141,35 @@ export class DocumentService {
 
   /** Always inserts a new version and moves the draft pointer to it. Returns the version id. */
   async updateDraft(repoId: string, actor: Actor, id: string, input: UpdateDraftInput): Promise<string> {
-    const [doc] = await this.sql`
-      select d.type, d.lang, v.uid, v.tags, v.title from documents d
+    // Carried-over uid/tags/title come from the current draft. Optimistic attempts read and normalize outside
+    // the write tx (normalization may hit the network) and re-check under the row lock that the draft is still
+    // the one read, retrying if not. The last attempt reads under the row lock, so it cannot lose an update
+    // and cannot fail spuriously under contention.
+    let versionId: string | null = null;
+    for (let attempt = 1; versionId === null; attempt++) {
+      const pessimistic = attempt >= UPDATE_DRAFT_ATTEMPTS;
+      versionId = pessimistic
+        ? await tx(this.sql, async (t) => {
+            await lockDocs(t, repoId, [id]);
+            const { prepared } = await this.prepareDraft(t, repoId, id, input);
+            return this.writeDraft(t, repoId, actor, id, prepared);
+          })
+        : await (async () => {
+            const { seenDraft, prepared } = await this.prepareDraft(this.sql, repoId, id, input);
+            return tx(this.sql, async (t) => {
+              const [locked] = await lockDocs(t, repoId, [id]);
+              if (String(locked!.draft_version_id) !== seenDraft) return null;
+              return this.writeDraft(t, repoId, actor, id, prepared);
+            });
+          })();
+    }
+    this.events.emit("documents.updated", { repoId, actor, id, versionId });
+    return versionId;
+  }
+
+  private async prepareDraft(q: Sql, repoId: string, id: string, input: UpdateDraftInput) {
+    const [doc] = await q`
+      select d.type, d.lang, d.draft_version_id, v.uid, v.tags, v.title from documents d
       left join document_versions v on v.id = d.draft_version_id
       where d.id = ${id} and d.repo_id = ${repoId} and d.deleted_at is null`;
     if (!doc) throw new DocumentNotFound([id]);
@@ -149,14 +179,13 @@ export class DocumentService {
       title: input.title === undefined ? doc.title : input.title,
       data: input.data,
     });
-    const versionId = await tx(this.sql, async (t) => {
-      await lockDocs(t, repoId, [id]);
-      const vid = await this.insertVersion(t, repoId, id, actor, prepared, null);
-      await t`update documents set draft_version_id = ${vid} where id = ${id}`;
-      return vid;
-    });
-    this.events.emit("documents.updated", { repoId, actor, id, versionId });
-    return versionId;
+    return { seenDraft: String(doc.draft_version_id), prepared };
+  }
+
+  private async writeDraft(t: Sql, repoId: string, actor: Actor, id: string, prepared: PreparedVersion): Promise<string> {
+    const vid = await this.insertVersion(t, repoId, id, actor, prepared, null);
+    await t`update documents set draft_version_id = ${vid} where id = ${id}`;
+    return vid;
   }
 
   /** Publishes the current drafts of `ids` in a single publication (one new master ref). */

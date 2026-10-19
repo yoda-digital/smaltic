@@ -119,6 +119,19 @@ describe("DocumentService lifecycle", () => {
     const [open] = await db.sql`select count(*)::int as n from live_ranges where document_id = ${id} and to_seq is null`;
     expect(open!.n).toBe(0);
 
+    // Republish after unpublish opens a third range and clears archived_at.
+    const p4 = await svc.publish(repoId, ACTOR, [id]);
+    const [dr] = await db.sql`select * from documents where id = ${id}`;
+    expect(dr!.archived_at).toBeNull();
+    expect(dr!.live_version_id).toBe(v2);
+    const ranges2 = await db.sql`select version_id, from_seq, to_seq from live_ranges where document_id = ${id} order by from_seq`;
+    expect(ranges2.map((r) => [r.version_id, r.from_seq, r.to_seq])).toEqual([
+      [d1!.live_version_id, p1.seq, p2.seq],
+      [v2, p2.seq, p3.seq],
+      [v2, p4.seq, null],
+    ]);
+    await svc.unpublish(repoId, ACTOR, [id]);
+
     await svc.deleteArchived(repoId, ACTOR, [id]);
     const [d5] = await db.sql`select * from documents where id = ${id}`;
     expect(d5!.deleted_at).toBeInstanceOf(Date);
@@ -155,6 +168,47 @@ describe("DocumentService lifecycle", () => {
     const fr = await svc.create(repoId, ACTOR, { type: "page", lang: "fr-fr", data: {}, alternateOf: en.id });
     const rows = await db.sql`select id, group_id from documents where id in ${db.sql([en.id, fr.id])}`;
     expect(new Set(rows.map((r) => r.group_id)).size).toBe(1);
+  });
+});
+
+describe("updateDraft concurrency", () => {
+  it("a partial updateDraft racing a committed update keeps the committed uid/tags/title", async () => {
+    const repoId = await newRepo("draftrace");
+    const { id } = await svc.create(repoId, ACTOR, { type: "page", lang: "en-us", uid: "orig", tags: ["t0"], title: "T0", data: {} });
+    let release!: () => void;
+    const go = new Promise<void>((r) => (release = r));
+    let holderReady!: () => void;
+    const ready = new Promise<void>((r) => (holderReady = r));
+    // Separate connection: lock the document row and stage a full update (uid "first") without committing.
+    const holder = db.sql.begin(async (t) => {
+      await t`select 1 from documents where id = ${id} for update`;
+      const [v] = await t`insert into document_versions (document_id, repo_id, uid, tags, title, data, search_a, search_b, author_id)
+        values (${id}, ${repoId}, 'first', ${["t1"]}, 'T1', '{}'::jsonb, to_tsvector('simple', 'first'), to_tsvector('simple', ''), 'other')
+        returning id`;
+      await t`update documents set draft_version_id = ${v!.id} where id = ${id}`;
+      holderReady();
+      await go;
+    });
+    await ready;
+    // Partial update (no uid/tags/title): reads the old draft ("orig"), then blocks on the row lock.
+    const racing = svc.updateDraft(repoId, ACTOR, id, { data: { title: title("racing") } });
+    for (let i = 0; i < 200; i++) {
+      const [w] = await db.sql`select count(*)::int as n from pg_stat_activity
+        where datname = current_database() and wait_event_type = 'Lock'`;
+      if (w!.n > 0) break;
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    release();
+    await holder;
+    const vid = await racing;
+    const [v] = await db.sql`select uid, tags, title, data, search_a from document_versions where id = ${vid}`;
+    expect(v!.uid).toBe("first");
+    expect(v!.tags).toEqual(["t1"]);
+    expect(v!.title).toBe("T1");
+    expect(v!.data.title[0].text).toBe("racing");
+    expect(String(v!.search_a)).toContain("first");
+    const [d] = await db.sql`select draft_version_id from documents where id = ${id}`;
+    expect(d!.draft_version_id).toBe(vid);
   });
 });
 
