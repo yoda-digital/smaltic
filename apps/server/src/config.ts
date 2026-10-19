@@ -7,6 +7,8 @@ export interface Config {
   trustProxy: boolean;
   /** How long a superseded master ref stays queryable (SMALTIC_REF_TTL_SECONDS, default 3600). */
   refTtlSeconds: number;
+  /** Content API requests per second per repository (SMALTIC_RATE_LIMIT); undefined = no limit. */
+  rateLimit?: number;
 }
 
 export const DEV_SECRET = "dev-secret-change-me";
@@ -41,6 +43,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     dataDir: env.SMALTIC_DATA_DIR ?? "./data",
     trustProxy: (env.SMALTIC_TRUST_PROXY ?? "true") !== "false",
     refTtlSeconds: nonNegativeInt(env.SMALTIC_REF_TTL_SECONDS, 3600),
+    rateLimit: nonNegativeInt(env.SMALTIC_RATE_LIMIT, 0) || undefined,
   };
 }
 
