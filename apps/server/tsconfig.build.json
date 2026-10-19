@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "outDir": "dist", "rootDir": "src", "noEmit": false, "declaration": false, "sourceMap": true, "types": ["node"], "preserveSymlinks": true },
+  "include": ["src"]
+}
