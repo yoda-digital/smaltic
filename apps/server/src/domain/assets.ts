@@ -5,7 +5,7 @@ import type { FastifyRequest } from "fastify";
 import sharp from "sharp";
 import type { Config } from "../config.js";
 import type { Sql } from "../db/index.js";
-import { publicUrl } from "../http/repoContext.js";
+import { canonicalOrigin } from "../http/repoContext.js";
 
 export type AssetKind = "image" | "audio" | "video" | "document";
 
@@ -214,8 +214,9 @@ export class AssetService {
     return `/assets/${encodeURIComponent(asset.repoName)}/${asset.id}_${encodeURIComponent(asset.filename)}`;
   }
 
+  /** Canonical asset URL (R12): `<origin>/assets/<repo>/<id>_<filename>`, never with the `/r/` prefix. */
   publicAssetUrl(req: FastifyRequest, asset: Asset): string {
-    return publicUrl(req, this.assetPath(asset));
+    return canonicalOrigin(req) + this.assetPath(asset);
   }
 
   /** Normalization lookup (R10). Without `urlFor`, urls use SMALTIC_PUBLIC_URL (or http://localhost). */

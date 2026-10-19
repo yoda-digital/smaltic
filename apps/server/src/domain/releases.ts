@@ -29,6 +29,32 @@ type Actor = string | null;
 const tx = <T>(sql: Sql, fn: (t: Sql) => Promise<T>): Promise<T> =>
   sql.begin((t) => fn(t as unknown as Sql)) as Promise<T>;
 
+export interface LockedRelease extends Release {
+  /** True when this transaction created it. */
+  created: boolean;
+}
+
+/**
+ * Returns the repo's single open migration release locked FOR UPDATE in `t`, creating it on demand.
+ * The row lock serializes against `ReleaseService.publish` (which locks the release row first): a
+ * publish that commits while we wait makes the row no longer `open` on re-check, so we open a new
+ * one. Concurrent creators meet on the partial unique index `releases_one_open_migration`.
+ */
+export async function lockOpenMigrationRelease(t: Sql, repoId: string): Promise<LockedRelease> {
+  for (let i = 0; i < 5; i++) {
+    const [r] = await t`select id, ref from releases
+      where repo_id = ${repoId} and migration and status = 'open' for update`;
+    if (r) return { id: r.id, ref: r.ref, created: false };
+    const [ins] = await t`insert into releases (id, repo_id, label, ref, migration)
+      values (${newId()}, ${repoId}, 'Migration release', ${newId()}, true)
+      on conflict (repo_id) where migration and status = 'open' do nothing
+      returning id, ref`;
+    if (ins) return { id: ins.id, ref: ins.ref, created: true };
+    // Another tx created it and committed while our insert waited: the next select sees it.
+  }
+  throw new Error(`Could not open a migration release for repository ${repoId}`);
+}
+
 /** Locks an open release row of the repo. */
 async function lockOpen(t: Sql, repoId: string, id: string): Promise<void> {
   const [r] = await t`select status from releases where id = ${id} and repo_id = ${repoId} for update`;
@@ -55,19 +81,6 @@ export class ReleaseService {
   async findOpenMigrationRelease(repoId: string): Promise<Release | null> {
     const [r] = await this.sql`select id, ref from releases where repo_id = ${repoId} and migration and status = 'open'`;
     return r ? { id: r.id, ref: r.ref } : null;
-  }
-
-  /** The single open migration release of the repo (unique index), created on demand; race-safe. */
-  async openMigrationRelease(repoId: string, actor: Actor): Promise<Release> {
-    for (;;) {
-      const found = await this.findOpenMigrationRelease(repoId);
-      if (found) return found;
-      try {
-        return await this.create(repoId, actor, "Migration release", { migration: true });
-      } catch (e) {
-        if ((e as { code?: string }).code !== "23505") throw e; // lost the race: read the winner's
-      }
-    }
   }
 
   /** Stages the document's current draft version (re-adding replaces the snapshot). */

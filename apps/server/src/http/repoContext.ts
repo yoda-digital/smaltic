@@ -69,8 +69,8 @@ function hostAllowed(host: string, cfg: Config): boolean {
   return allowed.includes(bare) || (base !== undefined && (bare === base || bare.endsWith(`.${base}`)));
 }
 
-/** Builds an absolute URL for `path` (starting with `/`), honouring validated proxy headers and the /r/<repo> prefix. */
-export function publicUrl(req: FastifyRequest, path: string): string {
+/** Request origin (`scheme://host[:port]`) from validated proxy/Host headers, falling back to SMALTIC_PUBLIC_URL. */
+export function requestOrigin(req: FastifyRequest): string {
   const cfg = req.server.config;
   const sockProto = (req.raw.socket as { encrypted?: boolean }).encrypted ? "https" : "http";
   const hostHeader = req.headers.host;
@@ -97,7 +97,28 @@ export function publicUrl(req: FastifyRequest, path: string): string {
   if (!origin) {
     origin = configured ?? (hostHeader && HOST_RE.test(hostHeader) ? `${sockProto}://${hostHeader}` : "http://localhost");
   }
+  return origin;
+}
 
+/**
+ * Origin for URLs persisted in content (R12): SMALTIC_PUBLIC_URL's origin when set, otherwise the
+ * validated request origin. Unlike `publicUrl` it never carries the `/r/<repo>` prefix.
+ */
+export function canonicalOrigin(req: FastifyRequest): string {
+  const configured = req.server.config.publicUrl;
+  if (configured) {
+    try {
+      return new URL(configured).origin;
+    } catch {
+      /* invalid: fall through to the request origin */
+    }
+  }
+  return requestOrigin(req);
+}
+
+/** Builds an absolute URL for `path` (starting with `/`), honouring validated proxy headers and the /r/<repo> prefix. */
+export function publicUrl(req: FastifyRequest, path: string): string {
+  const origin = requestOrigin(req);
   const used = prefixRepo(req);
   const name = used ? resolveRepoName(req) ?? used : undefined;
   return `${origin}${name ? `/r/${encodeURIComponent(name)}` : ""}${path.startsWith("/") ? path : `/${path}`}`;

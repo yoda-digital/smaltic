@@ -15,7 +15,22 @@ import { DomainEvents, type PublishedDoc } from "./events.js";
 import { ModelService } from "./models.js";
 import { DocumentNotFound, UidConflict, lockDocs, publishItems, type LiveItem } from "./publishing.js";
 import { insertPublication, lockRepo, type MasterRef } from "./refs.js";
-import { ReleaseService, type CreateReleaseOpts, type Release } from "./releases.js";
+import {
+  lockOpenMigrationRelease,
+  ReleaseService,
+  type CreateReleaseOpts,
+  type LockedRelease,
+  type Release,
+} from "./releases.js";
+
+type StagedIn = LockedRelease;
+
+/** Stages (or re-stages) a draft version in a release locked by the caller's transaction. */
+async function stageItem(t: Sql, release: LockedRelease, docId: string, versionId: string): Promise<StagedIn> {
+  await t`insert into release_items (release_id, document_id, version_id) values (${release.id}, ${docId}, ${versionId})
+    on conflict (release_id, document_id) do update set version_id = excluded.version_id`;
+  return release;
+}
 
 export { DocumentNotFound, UidConflict };
 export { ReleaseNotFound, ReleaseNotOpen, type CreateReleaseOpts, type Release } from "./releases.js";
@@ -91,12 +106,26 @@ export interface DocumentServiceOpts {
   normalizeCtx?: NormalizeCtx;
   /** Real asset lookup; overrides `normalizeCtx` asset hooks so images and media links are validated and filled. */
   assets?: AssetLookup;
+  /** Test-only interleaving points inside the staging transaction (see `WriteOpts.stageInMigrationRelease`). */
+  testHooks?: StagingHooks;
+}
+
+export interface StagingHooks {
+  /** In the write tx, before the open migration release is looked up and locked. */
+  beforeMigrationLookup?: () => Promise<void>;
+  /** In the write tx, right after the open migration release is locked (before staging). */
+  afterMigrationLookup?: () => Promise<void>;
 }
 
 /** Per-call options of writes. */
 export interface WriteOpts {
   /** How asset URLs are made absolute while filling id-only media (defaults to the lookup's own). */
   urlFor?: UrlFor;
+  /**
+   * Stage the new draft in the repo's single open migration release (opened on demand) in the SAME
+   * transaction as the draft write, so a concurrent publish can never leave it outside an open release.
+   */
+  stageInMigrationRelease?: boolean;
 }
 
 /** Text search configuration; the one place to change it (Task 9 may switch to an unaccent config). */
@@ -122,6 +151,7 @@ export class DocumentService {
   private models: ModelService;
   private normalizeCtx: NormalizeCtx;
   private assets?: AssetLookup;
+  private hooks: StagingHooks;
   private releases: ReleaseService;
 
   constructor(private sql: Sql, opts: DocumentServiceOpts = {}) {
@@ -129,13 +159,17 @@ export class DocumentService {
     this.models = opts.models ?? new ModelService(sql);
     this.normalizeCtx = opts.normalizeCtx ?? { resolveEmbed: () => null, assetExists: () => true };
     this.assets = opts.assets;
+    this.hooks = opts.testHooks ?? {};
     this.releases = new ReleaseService(sql, this.events);
   }
 
   async create(repoId: string, actor: Actor, input: CreateDocumentInput, opts: WriteOpts = {}): Promise<{ id: string; versionId: string }> {
     const prepared = await this.prepare(repoId, input.type, input.lang, input, opts);
     const id = newId();
+    let staged: StagedIn | null = null;
     const versionId = await tx(this.sql, async (t) => {
+      // Release row first: the same lock order as ReleaseService.publish (release, then documents).
+      const release = opts.stageInMigrationRelease ? await this.lockMigrationRelease(t, repoId) : null;
       let groupId = id;
       if (input.alternateOf) {
         const [src] = await t`select group_id from documents
@@ -150,9 +184,11 @@ export class DocumentService {
         values (${id}, ${repoId}, ${input.type}, ${input.lang}, ${groupId})`;
       const vid = await this.insertVersion(t, repoId, id, actor, prepared, null);
       await t`update documents set draft_version_id = ${vid} where id = ${id}`;
+      if (release) staged = await stageItem(t, release, id, vid);
       return vid;
     });
     this.events.emit("documents.created", { repoId, actor, id, versionId });
+    this.emitStaged(repoId, actor, staged);
     return { id, versionId };
   }
 
@@ -163,24 +199,35 @@ export class DocumentService {
     // the one read, retrying if not. The last attempt reads under the row lock, so it cannot lose an update
     // and cannot fail spuriously under contention.
     let versionId: string | null = null;
+    let staged: StagedIn | null = null;
+    // Release row before document rows: the same lock order as ReleaseService.publish.
+    const stageLock = (t: Sql) => (opts.stageInMigrationRelease ? this.lockMigrationRelease(t, repoId) : Promise.resolve(null));
+    const write = async (t: Sql, release: LockedRelease | null, prepared: PreparedVersion) => {
+      const vid = await this.writeDraft(t, repoId, actor, id, prepared);
+      if (release) staged = await stageItem(t, release, id, vid);
+      return vid;
+    };
     for (let attempt = 1; versionId === null; attempt++) {
       const pessimistic = attempt >= UPDATE_DRAFT_ATTEMPTS;
       versionId = pessimistic
         ? await tx(this.sql, async (t) => {
+            const release = await stageLock(t);
             await lockDocs(t, repoId, [id]);
             const { prepared } = await this.prepareDraft(t, repoId, id, input, opts);
-            return this.writeDraft(t, repoId, actor, id, prepared);
+            return write(t, release, prepared);
           })
         : await (async () => {
             const { seenDraft, prepared } = await this.prepareDraft(this.sql, repoId, id, input, opts);
             return tx(this.sql, async (t) => {
+              const release = await stageLock(t);
               const [locked] = await lockDocs(t, repoId, [id]);
               if (String(locked!.draft_version_id) !== seenDraft) return null;
-              return this.writeDraft(t, repoId, actor, id, prepared);
+              return write(t, release, prepared);
             });
           })();
     }
     this.events.emit("documents.updated", { repoId, actor, id, versionId });
+    this.emitStaged(repoId, actor, staged);
     return versionId;
   }
 
@@ -302,13 +349,23 @@ export class DocumentService {
   deleteRelease(repoId: string, actor: Actor, releaseId: string): Promise<void> {
     return this.releases.delete(repoId, actor, releaseId);
   }
-  /** The repository's single open migration release, created on demand. */
-  migrationRelease(repoId: string, actor: Actor): Promise<Release> {
-    return this.releases.openMigrationRelease(repoId, actor);
-  }
   /** The open migration release, if any. */
   findMigrationRelease(repoId: string): Promise<Release | null> {
     return this.releases.findOpenMigrationRelease(repoId);
+  }
+
+  /** Open migration release locked for this tx (created on demand), with the test hooks around the lookup. */
+  private async lockMigrationRelease(t: Sql, repoId: string): Promise<LockedRelease> {
+    await this.hooks.beforeMigrationLookup?.();
+    const release = await lockOpenMigrationRelease(t, repoId);
+    await this.hooks.afterMigrationLookup?.();
+    return release;
+  }
+
+  private emitStaged(repoId: string, actor: Actor, staged: StagedIn | null): void {
+    if (!staged) return;
+    if (staged.created) this.events.emit("release.created", { repoId, actor, releaseId: staged.id, ref: staged.ref });
+    this.events.emit("release.updated", { repoId, actor, releaseId: staged.id });
   }
 
   private async prepare(

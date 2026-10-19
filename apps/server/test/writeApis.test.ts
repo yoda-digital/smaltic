@@ -5,6 +5,7 @@ import { createMigration, createWriteClient, ForbiddenError, InvalidDataError } 
 import Fastify from "fastify";
 import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { DocumentService, type StagingHooks } from "../src/domain/documents.js";
 import { ModelService } from "../src/domain/models.js";
 import { RepositoryService } from "../src/domain/repositories.js";
 import { ensureRetryAfter } from "../src/http/errors.js";
@@ -285,5 +286,174 @@ describe("429 responses", () => {
     expect(res.statusCode).toBe(429);
     expect(res.headers["retry-after"]).toBe("1");
     await app.close();
+  });
+});
+
+describe("Fix 1: drafts are staged in the open migration release atomically", () => {
+  let stageRepo: string;
+  const hooks: StagingHooks = {};
+  let staging: DocumentService;
+  let plain: DocumentService;
+  const once = (fn: () => Promise<void>) => {
+    let done = false;
+    return async () => {
+      if (done) return;
+      done = true;
+      await fn();
+    };
+  };
+  const openRelease = async () =>
+    (await srv.sql`select id from releases where repo_id = ${stageRepo} and migration and status = 'open'`).map((r) => r.id as string);
+  const stagedIn = async (docId: string) =>
+    (await srv.sql`select ri.release_id, r.status from release_items ri join releases r on r.id = ri.release_id
+      where ri.document_id = ${docId}`).map((r) => ({ release: r.release_id as string, status: r.status as string }));
+  const isLive = async (docId: string) => {
+    const [d] = await srv.sql`select live_version_id, draft_version_id from documents where id = ${docId}`;
+    return d!.live_version_id !== null && String(d!.live_version_id) === String(d!.draft_version_id);
+  };
+  const doc = (uid: string) => ({ type: "page", lang: "en-us", uid, title: uid, data: { title: heading(uid) } });
+
+  beforeAll(async () => {
+    const repos = new RepositoryService(srv.sql);
+    stageRepo = (await repos.create({ name: "stage-repo", masterLocale: { code: "en-us", name: "English" } })).id;
+    const models = new ModelService(srv.sql);
+    await models.insertSlice(stageRepo, textSlice);
+    await models.insertType(stageRepo, pageType);
+    staging = new DocumentService(srv.sql, { testHooks: hooks });
+    plain = new DocumentService(srv.sql);
+  });
+
+  it("a publish committing before the release lookup: the draft lands in a NEW open release and the next publish ships it", async () => {
+    const a = await staging.create(stageRepo, null, doc("a"), { stageInMigrationRelease: true });
+    const [r1] = await openRelease();
+    expect(await stagedIn(a.id)).toEqual([{ release: r1, status: "open" }]);
+
+    hooks.beforeMigrationLookup = once(async () => {
+      await plain.publishRelease(stageRepo, null, r1!);
+    });
+    const b = await staging.create(stageRepo, null, doc("b"), { stageInMigrationRelease: true });
+    hooks.beforeMigrationLookup = undefined;
+
+    expect(await isLive(a.id)).toBe(true);
+    const [r2] = await openRelease();
+    expect(r2).toBeDefined();
+    expect(r2).not.toBe(r1);
+    expect(await stagedIn(b.id)).toEqual([{ release: r2, status: "open" }]);
+    expect(await isLive(b.id)).toBe(false);
+
+    await plain.publishRelease(stageRepo, null, r2!);
+    expect(await isLive(b.id)).toBe(true);
+  });
+
+  it("a publish racing right after the release is locked waits for the staging tx and includes the draft (create and update)", async () => {
+    const c = await staging.create(stageRepo, null, doc("c"), { stageInMigrationRelease: true });
+    const [r3] = await openRelease();
+
+    let pending: Promise<unknown> | undefined;
+    hooks.afterMigrationLookup = once(async () => {
+      pending = plain.publishRelease(stageRepo, null, r3!);
+      await new Promise((r) => setTimeout(r, 300)); // let the publish block on the release row lock
+    });
+    const d = await staging.create(stageRepo, null, doc("d"), { stageInMigrationRelease: true });
+    hooks.afterMigrationLookup = undefined;
+    await pending;
+    expect(await isLive(c.id)).toBe(true);
+    expect(await isLive(d.id)).toBe(true);
+    expect(await stagedIn(d.id)).toEqual([{ release: r3, status: "published" }]);
+
+    // Update of a document already staged in the open release: the publish locks the release row then
+    // the document rows; staging takes them in the same order, so this must not deadlock.
+    const e = await staging.create(stageRepo, null, doc("e"), { stageInMigrationRelease: true });
+    const [r4] = await openRelease();
+    hooks.afterMigrationLookup = once(async () => {
+      pending = plain.publishRelease(stageRepo, null, r4!);
+      await new Promise((r) => setTimeout(r, 300));
+    });
+    const v2 = await staging.updateDraft(stageRepo, null, e.id, { data: { title: heading("e2") } }, { stageInMigrationRelease: true });
+    hooks.afterMigrationLookup = undefined;
+    await pending;
+    const [row] = await srv.sql`select live_version_id from documents where id = ${e.id}`;
+    expect(String(row!.live_version_id)).toBe(v2);
+  });
+});
+
+/** Multipart body for app.inject, built by the platform FormData encoder. */
+async function multipartPng(name: string) {
+  const fd = new FormData();
+  fd.append("file", new File([await readFile(fixture)], name, { type: "image/png" }));
+  const r = new Request("http://x/", { method: "POST", body: fd });
+  return { payload: Buffer.from(await r.arrayBuffer()), contentType: r.headers.get("content-type")! };
+}
+
+describe("Fix 2 (R12): canonical asset URLs in content", () => {
+  it("prefix (/r/<repo>) and repository-header addressing store the same canonical URL", async () => {
+    const auth = { authorization: `Bearer ${writeToken}` };
+    const upload = async (url: string, headers: Record<string, string>) => {
+      const fd = new FormData();
+      fd.append("file", new File([await readFile(fixture)], "same.png", { type: "image/png" }));
+      const res = await fetch(`${srv.baseUrl}${url}`, { method: "POST", body: fd, headers });
+      expect(res.status).toBe(200);
+      return (await res.json()) as { id: string; url: string };
+    };
+    const viaPrefix = await upload(`/r/${REPO}/asset-api/assets`, auth);
+    const viaHeader = await upload(`/asset-api/assets`, { ...auth, repository: REPO });
+    expect(viaPrefix.url).toBe(`${srv.baseUrl}/assets/${REPO}/${viaPrefix.id}_same.png`);
+    expect(viaHeader.url).toBe(`${srv.baseUrl}/assets/${REPO}/${viaHeader.id}_same.png`);
+
+    // Same through the Migration API: the id-only image is filled with the canonical URL either way.
+    const stored: string[] = [];
+    for (const [url, headers] of [
+      [`/r/${REPO}/migration-api/documents`, auth],
+      [`/migration-api/documents`, { ...auth, repository: REPO }],
+    ] as const) {
+      const res = await fetch(`${srv.baseUrl}${url}`, {
+        method: "POST",
+        headers: { ...headers, "content-type": "application/json" },
+        body: JSON.stringify({ title: "canon", type: "page", lang: "en-us", data: { image: { id: viaPrefix.id } } }),
+      });
+      expect(res.status).toBe(201);
+      const [row] = await srv.sql`select v.data from documents d join document_versions v on v.id = d.draft_version_id
+        where d.id = ${(await res.json()).id}`;
+      stored.push(row!.data.image.url);
+    }
+    expect(stored).toEqual([viaPrefix.url, viaPrefix.url]);
+  });
+
+  it("with SMALTIC_PUBLIC_URL configured a spoofed Host / X-Forwarded-Host never reaches stored content", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "smaltic-assets-"));
+    const s2 = await startServer({ config: { dataDir: dir, publicUrl: "https://cms.example.com" } });
+    try {
+      const repos = new RepositoryService(s2.sql);
+      const repo = await repos.create({ name: "canon-repo", masterLocale: { code: "en-us", name: "English" } });
+      const { token } = await repos.createToken(repo.id, "write", "t");
+      const models = new ModelService(s2.sql);
+      await models.insertSlice(repo.id, textSlice);
+      await models.insertType(repo.id, pageType);
+      const spoof = { host: "evil.test", "x-forwarded-host": "evil.test", "x-forwarded-proto": "http", repository: "canon-repo", authorization: `Bearer ${token}` };
+
+      const { payload, contentType } = await multipartPng("p.png");
+      const up = await s2.app.inject({ method: "POST", url: "/asset-api/assets", headers: { ...spoof, "content-type": contentType }, payload });
+      expect(up.statusCode).toBe(200);
+      const asset = up.json() as { id: string; url: string };
+      expect(asset.url).toBe(`https://cms.example.com/assets/canon-repo/${asset.id}_p.png`);
+      const [a] = await s2.sql`select id from assets where id = ${asset.id}`;
+      expect(a).toBeDefined();
+
+      const created = await s2.app.inject({
+        method: "POST",
+        url: "/migration-api/documents",
+        headers: spoof,
+        payload: { title: "x", type: "page", lang: "en-us", data: { image: { id: asset.id }, file: { link_type: "Media", id: asset.id } } },
+      });
+      expect(created.statusCode).toBe(201);
+      const [row] = await s2.sql`select v.data from documents d join document_versions v on v.id = d.draft_version_id
+        where d.id = ${created.json().id}`;
+      expect(row!.data.image.url).toBe(asset.url);
+      expect(row!.data.file.url).toBe(asset.url);
+      expect(JSON.stringify(row!.data)).not.toContain("evil.test");
+    } finally {
+      await s2.close();
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

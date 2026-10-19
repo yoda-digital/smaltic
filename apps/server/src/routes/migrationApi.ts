@@ -10,7 +10,7 @@ import {
 import { ModelService, NotFound as ModelNotFound } from "../domain/models.js";
 import { RepositoryService } from "../domain/repositories.js";
 import { migrationApiError } from "../http/errors.js";
-import { publicUrl, resolveRepoName } from "../http/repoContext.js";
+import { canonicalOrigin, resolveRepoName } from "../http/repoContext.js";
 
 /** Migration API error item; `value` only when one was sent (R1§8 examples). */
 type EnvelopeError = { property: string; value?: unknown; error: string };
@@ -98,7 +98,8 @@ export async function migrationApi(app: FastifyInstance, opts: { documents: Docu
         return migrationApiError(reply, 500, "Internal error");
       });
 
-      const urlFor = (req: FastifyRequest) => (path: string) => publicUrl(req, path);
+      // R12: content stores canonical asset URLs (no /r/ prefix, configured or validated origin).
+      const urlFor = (req: FastifyRequest) => (path: string) => canonicalOrigin(req) + path;
 
       api.post("/documents", async (req, reply) => {
         const { body, errors } = checkPost(req.body);
@@ -125,7 +126,7 @@ export async function migrationApi(app: FastifyInstance, opts: { documents: Docu
               data: body.data,
               alternateOf: body.alternate_language_id,
             },
-            { urlFor: urlFor(req) },
+            { urlFor: urlFor(req), stageInMigrationRelease: true },
           ));
         } catch (e) {
           if (e instanceof DocumentNotFound) {
@@ -133,8 +134,6 @@ export async function migrationApi(app: FastifyInstance, opts: { documents: Docu
           }
           throw e;
         }
-        const release = await docs.migrationRelease(req.repo.id, null);
-        await docs.addToRelease(req.repo.id, null, release.id, id);
         const out: Record<string, unknown> = { id, title: body.title, type: body.type, lang: body.lang };
         if (body.uid) out.uid = body.uid;
         return reply.code(201).send(out);
@@ -151,14 +150,12 @@ export async function migrationApi(app: FastifyInstance, opts: { documents: Docu
             id,
             // Omitting `tags` on PUT clears them (R1§8); omitted uid/title carry over.
             { uid: body.uid ?? undefined, title: body.title, tags: body.tags ?? [], data: body.data! },
-            { urlFor: urlFor(req) },
+            { urlFor: urlFor(req), stageInMigrationRelease: true },
           );
         } catch (e) {
           if (e instanceof DocumentNotFound) return migrationApiError(reply, 404, `Document ${id} not found`);
           throw e;
         }
-        const release = await docs.migrationRelease(req.repo.id, null);
-        await docs.addToRelease(req.repo.id, null, release.id, id);
         return reply.code(200).send({ id });
       };
       api.put("/documents/:id", put);
