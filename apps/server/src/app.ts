@@ -9,6 +9,7 @@ import { assetApi } from "./routes/assetApi.js";
 import { contentApi } from "./routes/contentApi.js";
 import { customTypesApi } from "./routes/customTypesApi.js";
 import { migrationApi } from "./routes/migrationApi.js";
+import { previewApi } from "./routes/previewApi.js";
 
 export interface AppDeps {
   config: Config;
@@ -35,6 +36,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await contentApi(app);
   await migrationApi(app, { documents });
   await assetApi(app, { assets });
+  await previewApi(app);
 
   return app;
 }
