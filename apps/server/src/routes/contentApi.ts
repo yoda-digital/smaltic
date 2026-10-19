@@ -10,7 +10,7 @@ import { RepositoryService } from "../domain/repositories.js";
  */
 export async function contentApi(app: FastifyInstance): Promise<void> {
   const repos = new RepositoryService(app.sql);
-  const refs = new RefService(app.sql);
+  const refs = new RefService(app.sql, { secret: app.config.secret, refTtlSeconds: app.config.refTtlSeconds });
 
   app.get("/api/v2", { preHandler: app.requireRepo("content") }, async (req) => {
     const [master, locales] = await Promise.all([refs.currentMaster(req.repo.id), repos.listLocales(req.repo.id)]);

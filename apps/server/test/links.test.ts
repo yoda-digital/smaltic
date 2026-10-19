@@ -127,7 +127,7 @@ beforeAll(async () => {
   await svc.unpublish(repoId, "u", [ids.gone!]);
   await svc.deleteArchived(repoId, "u", [ids.gone!]);
 
-  master = { kind: "master", seq: (await new RefService(db.sql).currentMaster(repoId)).seq };
+  master = { kind: "master", seq: (await new RefService(db.sql, { secret: "test-secret" }).currentMaster(repoId)).seq };
   env = { sql: db.sql, repoId, scope: master, masterLang: "en-us", models: await loadModels(db.sql, repoId) };
 });
 afterAll(async () => db.drop());
@@ -315,7 +315,7 @@ describe("assets (R12)", () => {
       },
     });
     await svc.publish(repoId, "u", [id]);
-    const scope: RefScope = { kind: "master", seq: (await new RefService(db.sql).currentMaster(repoId)).seq };
+    const scope: RefScope = { kind: "master", seq: (await new RefService(db.sql, { secret: "test-secret" }).currentMaster(repoId)).seq };
     const r = (await search(db.sql, repoId, scope, { filters: parseQueries([`[[at(document.id, "${id}")]]`]), page: 1, pageSize: 1, lang: "*" })).rows;
     const [out] = await renderDocuments(
       { ...env, scope, models: await loadModels(db.sql, repoId), assetOrigin: "https://cms.test", repoName: "links-repo" },
@@ -341,7 +341,7 @@ describe("batching", () => {
       })).id);
     }
     await svc.publish(repoId, "u", [...cats, ...posts]);
-    const scope: RefScope = { kind: "master", seq: (await new RefService(db.sql).currentMaster(repoId)).seq };
+    const scope: RefScope = { kind: "master", seq: (await new RefService(db.sql, { secret: "test-secret" }).currentMaster(repoId)).seq };
     const r = (await search(db.sql, repoId, scope, { filters: parseQueries(['[[at(document.type, "blog")]]', '[[fulltext(document, "bulk")]]']), page: 1, pageSize: 20, lang: "en-us" })).rows;
     expect(r).toHaveLength(20);
 

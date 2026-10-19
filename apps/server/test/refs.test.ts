@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { loadConfig } from "../src/config.js";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { DEV_SECRET, loadConfig } from "../src/config.js";
 import { migrate } from "../src/db/index.js";
 import { DocumentService } from "../src/domain/documents.js";
 import { ModelService } from "../src/domain/models.js";
@@ -239,6 +239,48 @@ describe("resolveRef: toolbar JSON cookie", () => {
     await expect(refs.resolveRef(repoId, `{"${HOST}":{"preview":"${token}"}}`, { host: HOST })).rejects.toBeInstanceOf(
       PreviewExpiredError,
     );
+  });
+});
+
+describe("config: SMALTIC_SECRET (R17)", () => {
+  const prod = (secret?: string) => ({ NODE_ENV: "production", ...(secret !== undefined ? { SMALTIC_SECRET: secret } : {}) });
+
+  it("production + missing or empty secret throws", () => {
+    expect(() => loadConfig(prod())).toThrow(/SMALTIC_SECRET must be set in production/);
+    expect(() => loadConfig(prod(""))).toThrow(/SMALTIC_SECRET must be set in production/);
+  });
+  it("production + dev default secret throws", () => {
+    expect(() => loadConfig(prod(DEV_SECRET))).toThrow(/development default/);
+  });
+  it("production + short secret throws", () => {
+    expect(() => loadConfig(prod("x".repeat(31)))).toThrow(/at least 32 characters/);
+  });
+  it("production + 32+ char secret is accepted without warning", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const secret = "s".repeat(32);
+      expect(loadConfig(prod(secret)).secret).toBe(secret);
+      expect(loadConfig(prod("s".repeat(64))).secret).toBe("s".repeat(64));
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+  it("outside production a missing secret falls back to the dev default with a single warning", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect(loadConfig({}).secret).toBe(DEV_SECRET);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]![0])).toMatch(/SMALTIC_SECRET/);
+      warn.mockClear();
+      expect(loadConfig({ NODE_ENV: "development", SMALTIC_SECRET: "custom" }).secret).toBe("custom");
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+  it("RefService requires a non-empty secret", () => {
+    expect(() => new RefService(db.sql, { secret: "" })).toThrow(/secret/);
   });
 });
 

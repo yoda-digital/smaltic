@@ -48,8 +48,8 @@ export class PreviewExpiredError extends Error {
 export type PreviewOverlay = "drafts" | { releaseId: string };
 
 export interface RefServiceOpts {
-  /** HMAC key for preview tokens (`config.secret`). Required by `createPreviewToken` / preview resolution. */
-  secret?: string;
+  /** HMAC key for preview tokens (`config.secret`). */
+  secret: string;
   /** Lifetime of a superseded master ref (`config.refTtlSeconds`). Default 3600. */
   refTtlSeconds?: number;
 }
@@ -71,10 +71,11 @@ const PREVIEW_PREFIX = "pv.";
 const DEFAULT_PREVIEW_TTL = 1800;
 
 export class RefService {
-  private secret?: string;
+  private secret: string;
   private refTtlSeconds: number;
 
-  constructor(private sql: Sql, opts: RefServiceOpts = {}) {
+  constructor(private sql: Sql, opts: RefServiceOpts) {
+    if (!opts.secret) throw new Error("RefService: a non-empty secret is required");
     this.secret = opts.secret;
     this.refTtlSeconds = opts.refTtlSeconds ?? 3600;
   }
@@ -179,7 +180,6 @@ export class RefService {
   }
 
   private mac(data: string): string {
-    if (!this.secret) throw new Error("RefService: a secret is required for preview tokens");
     return createHmac("sha256", this.secret).update(data).digest("base64url");
   }
 

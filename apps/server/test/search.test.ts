@@ -76,7 +76,7 @@ beforeAll(async () => {
   await models.insertType(repoId, productType);
   await models.insertType(repoId, articleType);
   svc = new DocumentService(db.sql);
-  refs = new RefService(db.sql);
+  refs = new RefService(db.sql, { secret: "test-secret" });
 
   const add = async (uid: string, type: string, data: Record<string, unknown>, opts: { lang?: string; tags?: string[]; alt?: string; publish?: boolean } = {}) => {
     const { id } = await svc.create(repoId, "u", {

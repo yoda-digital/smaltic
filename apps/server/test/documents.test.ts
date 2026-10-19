@@ -60,7 +60,7 @@ beforeAll(async () => {
   }
   models = new ModelService(db.sql);
   svc = new DocumentService(db.sql, { events });
-  refs = new RefService(db.sql);
+  refs = new RefService(db.sql, { secret: "test-secret" });
 });
 afterAll(async () => db.drop());
 
